@@ -1,0 +1,63 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, DataExplorer, rpart, caret, rpart.plot, DMwR)
+
+# Setting work directory
+setwd("C:/Users/Chrisbran/Box Sync/Mestrado/Dissertation/new_dissertation")
+
+# Importing database
+completeDataFrame <- read.csv('all_countries_all_variables.csv')
+
+# Transforming some columns from character to numeric
+completeDataFrame$percent_change <- as.numeric(completeDataFrame$percent_change)
+
+# Transforming some columns from numeric to factor
+completeDataFrame$tax_created <- as.factor(completeDataFrame$tax_created)
+completeDataFrame$greens_gov <- as.factor(completeDataFrame$greens_gov)
+completeDataFrame$anti_tax_protests_5000 <- as.factor(completeDataFrame$anti_tax_protests_5000)
+completeDataFrame$neutral_tax <- as.factor(completeDataFrame$neutral_tax)
+completeDataFrame$green_revenue <- as.factor(completeDataFrame$green_revenue)
+completeDataFrame$after_paris_agree <- as.factor(completeDataFrame$after_paris_agree)
+completeDataFrame$caretaker_gov <- as.factor(completeDataFrame$caretaker_gov)
+completeDataFrame$decade <- as.factor(completeDataFrame$decade)
+completeDataFrame$tax_60 <- as.factor(completeDataFrame$tax_60)
+completeDataFrame$western_eu <- as.factor(completeDataFrame$western_eu)
+completeDataFrame$environmental_pressure <- as.factor(completeDataFrame$environmental_pressure)
+completeDataFrame$environmental_disasters <- as.factor(completeDataFrame$environmental_disasters)
+
+# Correcting some NAs
+completeDataFrame$environmental_pressure <- ifelse(is.na(completeDataFrame$environmental_pressure), 1, completeDataFrame$environmental_pressure)
+completeDataFrame$bond_yield <- ifelse(is.na(completeDataFrame$bond_yield), 9, completeDataFrame$bond_yield)
+completeDataFrame$anti_tax_protests_5000 <- ifelse(is.na(completeDataFrame$anti_tax_protests_5000), 0, completeDataFrame$anti_tax_protests_5000)
+completeDataFrame$gov_debt_gdp <- ifelse(is.na(completeDataFrame$gov_debt_gdp), 54, completeDataFrame$gov_debt_gdp)
+completeDataFrame$perc_votes_green <- ifelse(is.na(completeDataFrame$perc_votes_green), 0, completeDataFrame$perc_votes_green)
+
+# Create a new column with labels based on the percentage change
+completeDataFrame <- completeDataFrame %>%
+  mutate(Label10 = case_when(
+    is.na(percent_change) ~ "No tax",  # If the value is NULL
+    percent_change >= 10 ~ "Increased",  # If the value is greater than or equal to 10
+    percent_change <= -10 ~ "Decreased",  # If the value is less than or equal to -10
+    TRUE ~ "Same"  # If none of the above conditions are met
+  ))
+
+completeDataFrame <- completeDataFrame %>%
+  mutate(Label5 = case_when(
+    is.na(percent_change) ~ "No tax",  # First observation
+    percent_change >= 5 ~ "Increased",
+    percent_change >= -5 ~ "Same",
+    TRUE ~ "Decreased"
+  ))
+
+
+completeDataFrame <- completeDataFrame %>%
+  mutate(
+    Label10 = case_when(
+      tax_created == 1 ~ "Tax created",
+      TRUE ~ Label10
+    ))
+completeDataFrame <- completeDataFrame %>%
+  mutate(
+    Label5 = case_when(
+      tax_created == 1 ~ "Tax created",
+      TRUE ~ Label5
+    ))
