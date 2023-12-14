@@ -1,0 +1,372 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only Germany
+erdda_ger <- erdda %>%
+  filter(country_id == "Germany")
+
+# Selecting columns of interest
+erdda_ger <- erdda_ger %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_ger <- erdda_ger %>%
+  rename(KPD = seats_party1, Linke = seats_party2, GR = seats_party3, 
+         `B’90` = seats_party4, SPD = seats_party5, FDP = seats_party6, 
+         `CDU-CSU` = seats_party7, DSU = seats_party17, Z = seats_party9, 
+         `GB-BHE` = seats_party10, `DA-FVP` = seats_party11, DP = seats_party12,
+         WAV = seats_party13, BP = seats_party14, NR = seats_party15 , 
+         AFD = seats_party16)
+
+
+# Filtering cabinets of interest (1999-2021)
+erdda_ger <- erdda_ger[c(26:31), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_ger_long <- erdda_ger %>%
+  pivot_longer(cols = KPD:AFD, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Schroder I
+# Percentage of parliament seats that support the gov
+coalition_seats_schroderI <- sum(erdda_ger_long[3, 14], erdda_ger_long[5, 14])
+
+# The weighted of the governing parties in the coalition
+# Only GR
+erdda_ger_long[3, 15] <- erdda_ger_long[3, 14] / coalition_seats_schroderI
+# Only SPD
+erdda_ger_long[5, 15] <- erdda_ger_long[5, 14] / coalition_seats_schroderI
+
+# Coalition parties weights Schroder II
+# Percentage of parliament seats that support the gov
+coalition_seats_schroderII <- sum(erdda_ger_long[18, 14], erdda_ger_long[20, 14])
+
+# The weighted of the governing parties in the coalition
+# Only GR
+erdda_ger_long[18, 15] <- erdda_ger_long[18, 14] / coalition_seats_schroderII
+# Only SPD
+erdda_ger_long[20, 15] <- erdda_ger_long[20, 14] / coalition_seats_schroderII
+
+# Coalition parties weights Merkel I
+# Percentage of parliament seats that support the gov
+coalition_seats_merkelI <- sum(erdda_ger_long[35, 14], erdda_ger_long[37, 14])
+
+# The weighted of the governing parties in the coalition
+# Only CDU-CSU
+erdda_ger_long[37, 15] <- erdda_ger_long[37, 14] / coalition_seats_merkelI
+# Only SPD
+erdda_ger_long[35, 15] <- erdda_ger_long[35, 14] / coalition_seats_merkelI
+
+# Coalition parties weights Merkel II
+# Percentage of parliament seats that support the gov
+coalition_seats_merkelII <- sum(erdda_ger_long[52, 14], erdda_ger_long[51, 14])
+
+# The weighted of the governing parties in the coalition
+# Only CDU-CSU
+erdda_ger_long[52, 15] <- erdda_ger_long[52, 14] / coalition_seats_merkelII
+# Only FDP
+erdda_ger_long[51, 15] <- erdda_ger_long[51, 14] / coalition_seats_merkelII
+
+# Coalition parties weights Merkel III
+# Percentage of parliament seats that support the gov
+coalition_seats_merkelIII <- sum(erdda_ger_long[67, 14], erdda_ger_long[65, 14])
+
+# The weighted of the governing parties in the coalition
+# Only CDU-CSU
+erdda_ger_long[67, 15] <- erdda_ger_long[67, 14] / coalition_seats_merkelIII
+# Only SPD
+erdda_ger_long[65, 15] <- erdda_ger_long[65, 14] / coalition_seats_merkelIII
+
+# Coalition parties weights Merkel IV
+# Percentage of parliament seats that support the gov
+coalition_seats_merkelIV <- sum(erdda_ger_long[82, 14], erdda_ger_long[80, 14])
+
+# The weighted of the governing parties in the coalition
+# Only CDU-CSU
+erdda_ger_long[82, 15] <- erdda_ger_long[82, 14] / coalition_seats_merkelIV
+# Only SPD
+erdda_ger_long[80, 15] <- erdda_ger_long[80, 14] / coalition_seats_merkelIV
+
+#----
+# Section: ideologies
+#-----
+# Schroder I
+cabinet_schroderI <- erdda_ger_long %>%
+  filter(cab_name == 'Schröder I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_schroderI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 3 & year == 1999 & (party == 'Grunen' | party == 'SPD'))
+
+# Fixing name, from Grunen to GR
+ches_schroderI[2, 2] <- 'GR'
+
+
+## Adding to the cabinet dataframe
+cabinet_schroderI <- cabinet_schroderI %>%
+  left_join(ches_schroderI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Schroder II
+cabinet_schroderII <- erdda_ger_long %>%
+  filter(cab_name == 'Schröder II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_schroderII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 3 & year == 2002 & (party == 'Grunen' | party == 'SPD'))
+
+# Fixing name, from Grunen to GR
+ches_schroderII[2, 2] <- 'GR'
+
+
+## Adding to the cabinet dataframe
+cabinet_schroderII <- cabinet_schroderII %>%
+  left_join(ches_schroderII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Merkel I
+cabinet_merkelI <- erdda_ger_long %>%
+  filter(cab_name == 'Merkel I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_merkelI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 3 & year == 2006 & (party == 'CDU' | party == 'CSU' 
+                                        | party == 'SPD'))
+
+# Fixing name AND weighting CDU-CSU
+ches_merkelI[2, 2] <- 'CDU-CSU'
+ches_merkelI[2, 4] <- 7.16
+ches_merkelI[2, 5] <- 6.74
+ches_merkelI[2, 6] <- 6.15
+
+# Removing one row
+ches_merkelI <- ches_merkelI[c(1,2), ]
+
+## Adding to the cabinet dataframe
+cabinet_merkelI <- cabinet_merkelI %>%
+  left_join(ches_merkelI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Merkel II
+cabinet_merkelII <- erdda_ger_long %>%
+  filter(cab_name == 'Merkel II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_merkelII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 3 & year == 2010 & (party == 'CDU' | party == 'CSU' 
+                                        | party == 'FDP'))
+
+# Fixing name AND weighting CDU-CSU
+ches_merkelII[1, 2] <- 'CDU-CSU'
+ches_merkelII[1, 4] <- 6.41
+ches_merkelII[1, 5] <- 5.9
+ches_merkelII[1, 6] <- 5.79
+
+# Removing one row
+ches_merkelII <- ches_merkelII[c(1,2), ]
+
+## Adding to the cabinet dataframe
+cabinet_merkelII <- cabinet_merkelII %>%
+  left_join(ches_merkelII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Merkel III
+cabinet_merkelIII <- erdda_ger_long %>%
+  filter(cab_name == 'Merkel III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_merkelIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 3 & year == 2014 & (party == 'CDU' | party == 'CSU' 
+                                        | party == 'SPD'))
+
+# Fixing name AND weighting CDU-CSU
+ches_merkelIII[1, 2] <- 'CDU-CSU'
+ches_merkelIII[1, 4] <- 6.34
+ches_merkelIII[1, 5] <- 5.9
+ches_merkelIII[1, 6] <- 6.1
+
+# Removing one row
+ches_merkelIII <- ches_merkelIII[c(1,2), ]
+
+## Adding to the cabinet dataframe
+cabinet_merkelIII <- cabinet_merkelIII %>%
+  left_join(ches_merkelIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Merkel IV
+cabinet_merkelIV <- erdda_ger_long %>%
+  filter(cab_name == 'Merkel IV' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_merkelIV <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 3 & year == 2019 & (party == 'CDU' | party == 'CSU' 
+                                        | party == 'SPD'))
+
+# Fixing name AND weighting CDU-CSU
+ches_merkelIV[1, 2] <- 'CDU-CSU'
+ches_merkelIV[1, 4] <- 6.12
+ches_merkelIV[1, 5] <- 5.98
+ches_merkelIV[1, 6] <- 6.16
+
+# Removing one row
+ches_merkelIV <- ches_merkelIV[c(1,3), ]
+
+## Adding to the cabinet dataframe
+cabinet_merkelIV <- cabinet_merkelIV %>%
+  left_join(ches_merkelIV, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Schroder I
+sum(cabinet_schroderI$weighted_galtan)
+sum(cabinet_schroderI$weighted_lrecon)
+sum(cabinet_schroderI$weighted_eu_position)
+
+# Schroder II
+sum(cabinet_schroderII$weighted_galtan)
+sum(cabinet_schroderII$weighted_lrecon)
+sum(cabinet_schroderII$weighted_eu_position)
+
+# Merkel I
+sum(cabinet_merkelI$weighted_galtan)
+sum(cabinet_merkelI$weighted_lrecon)
+sum(cabinet_merkelI$weighted_eu_position)
+
+# Merkel II
+sum(cabinet_merkelII$weighted_galtan)
+sum(cabinet_merkelII$weighted_lrecon)
+sum(cabinet_merkelII$weighted_eu_position)
+
+# Merkel III
+sum(cabinet_merkelIII$weighted_galtan)
+sum(cabinet_merkelIII$weighted_lrecon)
+sum(cabinet_merkelIII$weighted_eu_position)
+
+# Merkel IV
+sum(cabinet_merkelIV$weighted_galtan)
+sum(cabinet_merkelIV$weighted_lrecon)
+sum(cabinet_merkelIV$weighted_eu_position)
+
+### Old
+# filtering only Germany
+erdda_ger_old <- erdda %>%
+  filter(country_id == "Germany")
+
+# Selecting columns of interest
+erdda_ger_old <- erdda_ger_old %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_ger_old <- erdda_ger_old %>%
+  rename(KPD = seats_party1, Linke = seats_party2, GR = seats_party3, 
+         `B’90` = seats_party4, SPD = seats_party5, FDP = seats_party6, 
+         `CDU-CSU` = seats_party7, DSU = seats_party17, Z = seats_party9, 
+         `GB-BHE` = seats_party10, `DA-FVP` = seats_party11, DP = seats_party12,
+         WAV = seats_party13, BP = seats_party14, NR = seats_party15 , 
+         AFD = seats_party16)
+
+
+# Filtering cabinets of interest 
+erdda_ger_old <- erdda_ger_old[c(25), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_ger_old_long <- erdda_ger_old %>%
+  pivot_longer(cols = KPD:AFD, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_ger_old_long <- erdda_ger_old_long %>%
+  filter(!is.na(party_seats))
+
+# Coalition parties weights Kohl VI
+# Percentage of parliament seats that support the gov
+coalition_seats_kohlVI <- sum(erdda_ger_old_long[4, 14], erdda_ger_old_long[5, 14])
+
+# The weighted of the governing parties in the coalition
+# Only CDU-CSU
+erdda_ger_old_long[4, 15] <- erdda_ger_old_long[4, 14] / coalition_seats_kohlVI
+# Only FDP
+erdda_ger_old_long[5, 15] <- erdda_ger_old_long[5, 14] / coalition_seats_kohlVI
+
+# Kohl VI
+cabinet_kohlVI <- erdda_ger_old_long %>%
+  filter(cab_name == 'Kohl VI' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_kohlVI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 3 & year == 1999 & (party == 'CDU' | party == 'CSU' 
+                                        | party == 'FDP'))
+
+# Fixing name AND weighting CDU-CSU
+ches_kohlVI[2, 2] <- 'CDU-CSU'
+ches_kohlVI[2, 4] <- 6.58
+ches_kohlVI[2, 5] <- 5.82
+ches_kohlVI[2, 6] <- 6.4
+
+# Removing one row
+ches_kohlVI <- ches_kohlVI[c(2,3), ]
+
+## Adding to the cabinet dataframe
+cabinet_kohlVI <- cabinet_kohlVI %>%
+  left_join(ches_kohlVI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Kohl VI
+sum(cabinet_kohlVI$weighted_galtan)
+sum(cabinet_kohlVI$weighted_lrecon)
+sum(cabinet_kohlVI$weighted_eu_position)
