@@ -1,0 +1,336 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+#filtering only Sweden
+erdda_swe <- erdda %>%
+  filter(country_id == "Sweden")
+
+#selecting columns of interest
+erdda_swe <- erdda_swe %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_swe <- erdda_swe %>%
+  rename(V = seats_party1, MP = seats_party2, S = seats_party3, 
+         L = seats_party4, C = seats_party5, KD = seats_party6, 
+         M = seats_party7, NyD = seats_party8, SD = seats_party9)
+
+# Filtering cabinets of interest (1999-2020)
+erdda_swe <- erdda_swe[c(26:31), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_swe_long <- erdda_swe %>%
+  pivot_longer(cols = V:SD, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Persson II
+# Percentage of parliament seats that support the gov
+coalition_seats_perssonII <- sum(erdda_swe_long[1, 16], erdda_swe_long[2, 16],
+                                                         erdda_swe_long[3, 16])
+# The weighted of the governing parties in the coalition
+# Only S
+erdda_swe_long[3, 17] <- erdda_swe_long[3, 16] / coalition_seats_perssonII
+# Only MP
+erdda_swe_long[2, 17] <- erdda_swe_long[2, 16] / coalition_seats_perssonII
+# Only V
+erdda_swe_long[1, 17] <- erdda_swe_long[1, 16] / coalition_seats_perssonII
+
+# Coalition parties weights Persson III
+# Percentage of parliament seats that support the gov
+coalition_seats_perssonIII <- sum(erdda_swe_long[10, 16], erdda_swe_long[11, 16],
+                                 erdda_swe_long[12, 16])
+# The weighted of the governing parties in the coalition
+# Only S
+erdda_swe_long[12, 17] <- erdda_swe_long[12, 16] / coalition_seats_perssonIII
+# Only MP
+erdda_swe_long[11, 17] <- erdda_swe_long[11, 16] / coalition_seats_perssonIII
+# Only V
+erdda_swe_long[10, 17] <- erdda_swe_long[10, 16] / coalition_seats_perssonIII
+
+# Coalition parties weights Reinfeldt I
+# Percentage of parliament seats that support the gov
+coalition_seats_reinfeldtI <- sum(erdda_swe_long[22, 16], erdda_swe_long[23, 16],
+                                  erdda_swe_long[24, 16], erdda_swe_long[25, 16])
+# The weighted of the governing parties in the coalition
+# Only L
+erdda_swe_long[22, 17] <- erdda_swe_long[22, 16] / coalition_seats_reinfeldtI
+# Only C
+erdda_swe_long[23, 17] <- erdda_swe_long[23, 16] / coalition_seats_reinfeldtI
+# Only KD
+erdda_swe_long[24, 17] <- erdda_swe_long[24, 16] / coalition_seats_reinfeldtI
+# Only M
+erdda_swe_long[25, 17] <- erdda_swe_long[25, 16] / coalition_seats_reinfeldtI
+
+# Coalition parties weights Reinfeldt II
+# Percentage of parliament seats that support the gov
+coalition_seats_reinfeldtII <- sum(erdda_swe_long[31, 16], erdda_swe_long[32, 16],
+                                  erdda_swe_long[33, 16], erdda_swe_long[34, 16])
+# The weighted of the governing parties in the coalition
+# Only L
+erdda_swe_long[31, 17] <- erdda_swe_long[31, 16] / coalition_seats_reinfeldtII
+# Only C
+erdda_swe_long[32, 17] <- erdda_swe_long[32, 16] / coalition_seats_reinfeldtII
+# Only KD
+erdda_swe_long[33, 17] <- erdda_swe_long[33, 16] / coalition_seats_reinfeldtII
+# Only M
+erdda_swe_long[34, 17] <- erdda_swe_long[34, 16] / coalition_seats_reinfeldtII
+
+# Coalition parties weights Lofven I
+# Percentage of parliament seats that support the gov
+coalition_seats_lofvenI <- sum(erdda_swe_long[39, 16], erdda_swe_long[38, 16],
+                                 erdda_swe_long[37, 16])
+# The weighted of the governing parties in the coalition
+# Only S
+erdda_swe_long[39, 17] <- erdda_swe_long[39, 16] / coalition_seats_lofvenI
+# Only MP
+erdda_swe_long[38, 17] <- erdda_swe_long[38, 16] / coalition_seats_lofvenI
+# Only V
+erdda_swe_long[37, 17] <- erdda_swe_long[37, 16] / coalition_seats_lofvenI
+
+# Coalition parties weights Lofven II
+# Percentage of parliament seats that support the gov
+coalition_seats_lofvenII <- sum(erdda_swe_long[50, 16], erdda_swe_long[49, 16],
+                               erdda_swe_long[48, 16], erdda_swe_long[47, 16])
+# The weighted of the governing parties in the coalition
+# Only c
+erdda_swe_long[50, 17] <- erdda_swe_long[50, 16] / coalition_seats_lofvenII
+# Only L
+erdda_swe_long[49, 17] <- erdda_swe_long[49, 16] / coalition_seats_lofvenII
+# Only S
+erdda_swe_long[48, 17] <- erdda_swe_long[48, 16] / coalition_seats_lofvenII
+# Only MP
+erdda_swe_long[47, 17] <- erdda_swe_long[47, 16] / coalition_seats_lofvenII
+
+#----
+# Section: ideologies
+#-----
+# Persson II
+cabinet_perssonII <- erdda_swe_long %>%
+  filter(cab_name == 'Persson II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_perssonII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 16 & year == 1999 & (party == 'SAP' | party == 'MP' | 
+                                           party == 'V'))
+
+# Fixing name, from SAP to S
+ches_perssonII[2, 2] <- 'S'
+#colnames(ches_perssonII)[colnames(ches_perssonII) == "party"] <- "party_name"
+
+## Adding to the cabinet dataframe
+cabinet_perssonII <- cabinet_perssonII %>%
+  left_join(ches_perssonII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Persson III
+cabinet_perssonIII <- erdda_swe_long %>%
+  filter(cab_name == 'Persson III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_perssonIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 16 & year == 2002 & (party == 'SAP' | party == 'MP' | 
+                                           party == 'V'))
+
+# Fixing name, from SAP to S
+ches_perssonIII[1, 2] <- 'S'
+#colnames(ches_perssonII)[colnames(ches_perssonII) == "party"] <- "party_name"
+
+## Adding to the cabinet dataframe
+cabinet_perssonIII <- cabinet_perssonIII %>%
+  left_join(ches_perssonIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Reinfeldt I
+cabinet_reinfeldtI <- erdda_swe_long %>%
+  filter(cab_name == 'Reinfeldt I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_reinfeldtI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 16 & year == 2006 & (party == 'M' | party == 'C' | 
+                                           party == 'KD' | party == 'FP'))
+
+# Fixing name, from FP to L
+ches_reinfeldtI[4, 2] <- 'L'
+
+## Adding to the cabinet dataframe
+cabinet_reinfeldtI <- cabinet_reinfeldtI %>%
+  left_join(ches_reinfeldtI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Reinfeldt II
+cabinet_reinfeldtII <- erdda_swe_long %>%
+  filter(cab_name == 'Reinfeldt II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_reinfeldtII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 16 & year == 2010 & (party == 'M' | party == 'C' | 
+                                           party == 'KD' | party == 'FP'))
+
+# Fixing name, from FP to L
+ches_reinfeldtII[1, 2] <- 'L'
+
+## Adding to the cabinet dataframe
+cabinet_reinfeldtII <- cabinet_reinfeldtII %>%
+  left_join(ches_reinfeldtII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Lofven I
+cabinet_lofvenI <- erdda_swe_long %>%
+  filter(cab_name == 'Löfven I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_lofvenI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 16 & year == 2014 & (party == 'SAP' | party == 'MP' | 
+                                           party == 'V'))
+
+# Fixing name, from SAP to S
+ches_lofvenI[1, 2] <- 'S'
+
+## Adding to the cabinet dataframe
+cabinet_lofvenI <- cabinet_lofvenI %>%
+  left_join(ches_lofvenI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Lofven II
+cabinet_lofvenII <- erdda_swe_long %>%
+  filter(cab_name == 'Löfven II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_lofvenII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 16 & year == 2019 & (party == 'S/SAP' | party == 'MP' | 
+                                           party == 'C' | party == 'L'))
+
+# Fixing name, from SAP to S
+ches_lofvenII[2, 2] <- 'S'
+
+## Adding to the cabinet dataframe
+cabinet_lofvenII <- cabinet_lofvenII %>%
+  left_join(ches_lofvenII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Persson II
+sum(cabinet_perssonII$weighted_galtan)
+sum(cabinet_perssonII$weighted_lrecon)
+sum(cabinet_perssonII$weighted_eu_position)
+
+# Persson III
+sum(cabinet_perssonIII$weighted_galtan)
+sum(cabinet_perssonIII$weighted_lrecon)
+sum(cabinet_perssonIII$weighted_eu_position)
+
+# Reinfeldt I
+sum(cabinet_reinfeldtI$weighted_galtan)
+sum(cabinet_reinfeldtI$weighted_lrecon)
+sum(cabinet_reinfeldtI$weighted_eu_position)
+
+# Reinfeldt II
+sum(cabinet_reinfeldtII$weighted_galtan)
+sum(cabinet_reinfeldtII$weighted_lrecon)
+sum(cabinet_reinfeldtII$weighted_eu_position)
+
+# Lofven I
+sum(cabinet_lofvenI$weighted_galtan)
+sum(cabinet_lofvenI$weighted_lrecon)
+sum(cabinet_lofvenI$weighted_eu_position)
+
+# Lofven II
+sum(cabinet_lofvenII$weighted_galtan)
+sum(cabinet_lofvenII$weighted_lrecon)
+sum(cabinet_lofvenII$weighted_eu_position)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Sweden
+erdda_swe_new <- erdda_new %>%
+  filter(country_name == "Sweden")
+
+# Selecting columns of interest
+erdda_swe_new <- erdda_swe_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_swe_new <- erdda_swe_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "V",
+    . == "seats_party2" ~ "MP",
+    . == "seats_party3" ~ "S",
+    . == "seats_party4" ~ "L",
+    . == "seats_party5" ~ "C",
+    . == "seats_party6" ~ "KD",
+    . == "seats_party7" ~ "M",
+    . == "seats_party8" ~ "NyD",
+    . == "seats_party9" ~ "SD",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest
+erdda_swe_new <- erdda_swe_new[c(24:33), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_swe_new_long <- erdda_swe_new %>%
+  pivot_longer(cols = V:SD, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_swe_new_long <- erdda_swe_new_long %>%
+  filter(!is.na(party_seats))
+
+# Fixing name Roivas II cabinet
+erdda_est_new_long[c(1:6), 2] <- 'Roivas II'
+
+# All the cabinets have only one party
+## Getting ideology from ches
+ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 16 & year == 2019 & (party == 'S/SAP'))
