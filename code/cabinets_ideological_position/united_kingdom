@@ -1,0 +1,324 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only UK
+erdda_uk <- erdda %>%
+  filter(country_id == "United Kingdom")
+
+# Selecting columns of interest
+erdda_uk <- erdda_uk %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_uk <- erdda_uk %>%
+  rename(Comm = seats_party1, ILP = seats_party2, SNP = seats_party3, 
+         PC = seats_party4, CW = seats_party5, Lab = seats_party6, 
+         Lib = seats_party7, SDP = seats_party8, Con = seats_party9, 
+         UKIP = seats_party10, IN = seats_party11, U = seats_party12)
+
+# Filtering cabinets of interest (1999-2021)
+erdda_uk <- erdda_uk[c(20:27), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_uk_long <- erdda_uk %>%
+  pivot_longer(cols = Comm:U, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Blair I 
+# Percentage of parliament seats that support the gov
+coalition_seats_blairI <- sum(erdda_uk_long[6, 12])
+
+# The weighted of the governing parties in the coalition
+# Only Lab
+erdda_uk_long[6, 13] <- erdda_uk_long[6, 12] / coalition_seats_blairI
+
+# Coalition parties weights Blair II 
+# Percentage of parliament seats that support the gov
+coalition_seats_blairII <- sum(erdda_uk_long[18, 12])
+
+# The weighted of the governing parties in the coalition
+# Only Lab
+erdda_uk_long[18, 13] <- erdda_uk_long[18, 12] / coalition_seats_blairII
+
+# Coalition parties weights Blair III 
+# Percentage of parliament seats that support the gov
+coalition_seats_blairIII <- sum(erdda_uk_long[30, 12])
+
+# The weighted of the governing parties in the coalition
+# Only Lab
+erdda_uk_long[30, 13] <- erdda_uk_long[30, 12] / coalition_seats_blairIII
+
+# Coalition parties weights Brown 
+# Percentage of parliament seats that support the gov
+coalition_seats_brown <- sum(erdda_uk_long[42, 12])
+
+# The weighted of the governing parties in the coalition
+# Only Lab
+erdda_uk_long[42, 13] <- erdda_uk_long[42, 12] / coalition_seats_brown
+
+# Coalition parties weights Cameron I 
+# Percentage of parliament seats that support the gov
+coalition_seats_cameronI <- sum(erdda_uk_long[57, 12], erdda_uk_long[55, 12])
+
+# The weighted of the governing parties in the coalition
+# Only Lib
+erdda_uk_long[55, 13] <- erdda_uk_long[55, 12] / coalition_seats_cameronI
+# Only Con
+erdda_uk_long[57, 13] <- erdda_uk_long[57, 12] / coalition_seats_cameronI
+
+# Coalition parties weights Cameron II 
+# Percentage of parliament seats that support the gov
+coalition_seats_cameronII <- sum(erdda_uk_long[69, 12])
+
+# The weighted of the governing parties in the coalition
+# Only Con
+erdda_uk_long[69, 13] <- erdda_uk_long[69, 12] / coalition_seats_cameronII
+
+# Coalition parties weights May I 
+# Percentage of parliament seats that support the gov
+coalition_seats_mayI <- sum(erdda_uk_long[81, 12])
+
+# The weighted of the governing parties in the coalition
+# Only Con
+erdda_uk_long[81, 13] <- erdda_uk_long[81, 12] / coalition_seats_mayI
+
+# Coalition parties weights May II 
+# Percentage of parliament seats that support the gov
+coalition_seats_mayII <- sum(erdda_uk_long[93, 12])
+
+# The weighted of the governing parties in the coalition
+# Only Con
+erdda_uk_long[93, 13] <- erdda_uk_long[93, 12] / coalition_seats_mayII
+
+#----
+# Section: ideologies
+#-----
+# Blair I
+cabinet_blairI <- erdda_uk_long %>%
+  filter(cab_name == 'Blair I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_blairI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 11 & year == 1999 & (party == 'LAB'))
+
+# Fixing name, LAB = Lab 
+ches_blairI[1, 2] <- 'Lab'
+
+## Adding to the cabinet dataframe
+cabinet_blairI <- cabinet_blairI %>%
+  left_join(ches_blairI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Blair II
+cabinet_blairII <- erdda_uk_long %>%
+  filter(cab_name == 'Blair II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_blairII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 11 & year == 2002 & (party == 'LAB'))
+
+# Fixing name, LAB = Lab 
+ches_blairII[1, 2] <- 'Lab'
+
+## Adding to the cabinet dataframe
+cabinet_blairII <- cabinet_blairII %>%
+  left_join(ches_blairII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Blair III
+cabinet_blairIII <- erdda_uk_long %>%
+  filter(cab_name == 'Blair III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_blairIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 11 & year == 2006 & (party == 'LAB'))
+
+# Fixing name, LAB = Lab 
+ches_blairIII[1, 2] <- 'Lab'
+
+## Adding to the cabinet dataframe
+cabinet_blairIII <- cabinet_blairIII %>%
+  left_join(ches_blairIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Brown 
+cabinet_brown <- erdda_uk_long %>%
+  filter(cab_name == 'Brown' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_brown <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 11 & year == 2010 & (party == 'LAB'))
+
+# Fixing name, LAB = Lab 
+ches_brown[1, 2] <- 'Lab'
+
+## Adding to the cabinet dataframe
+cabinet_brown <- cabinet_brown %>%
+  left_join(ches_brown, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Cameron I 
+cabinet_cameronI <- erdda_uk_long %>%
+  filter(cab_name == 'Cameron I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_cameronI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 11 & year == 2010 & (party == 'CONS' | party == 'LibDem'))
+
+# Fixing name, Cons = Con and LibDem = Lib 
+ches_cameronI[1, 2] <- 'Con'
+ches_cameronI[2, 2] <- 'Lib'
+
+## Adding to the cabinet dataframe
+cabinet_cameronI <- cabinet_cameronI %>%
+  left_join(ches_cameronI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Cameron II 
+cabinet_cameronII <- erdda_uk_long %>%
+  filter(cab_name == 'Cameron II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_cameronII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 11 & year == 2014 & (party == 'CONS'))
+
+# Fixing name, Cons = Con and LibDem = Lib 
+ches_cameronII[1, 2] <- 'Con'
+
+## Adding to the cabinet dataframe
+cabinet_cameronII <- cabinet_cameronII %>%
+  left_join(ches_cameronII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# May I 
+cabinet_mayI <- erdda_uk_long %>%
+  filter(cab_name == 'May I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_mayI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 11 & year == 2014 & (party == 'CONS'))
+
+# Fixing name, Cons = Con and LibDem = Lib 
+ches_mayI[1, 2] <- 'Con'
+
+## Adding to the cabinet dataframe
+cabinet_mayI <- cabinet_mayI %>%
+  left_join(ches_mayI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# May II 
+cabinet_mayII <- erdda_uk_long %>%
+  filter(cab_name == 'May II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_mayII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 11 & year == 2019 & (party == 'CONS'))
+
+# Fixing name, Cons = Con and LibDem = Lib 
+ches_mayII[1, 2] <- 'Con'
+
+## Adding to the cabinet dataframe
+cabinet_mayII <- cabinet_mayII %>%
+  left_join(ches_mayII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Blair I
+sum(cabinet_blairI$weighted_galtan)
+sum(cabinet_blairI$weighted_lrecon)
+sum(cabinet_blairI$weighted_eu_position)
+
+# Blair II
+sum(cabinet_blairII$weighted_galtan)
+sum(cabinet_blairII$weighted_lrecon)
+sum(cabinet_blairII$weighted_eu_position)
+
+# Blair III
+sum(cabinet_blairIII$weighted_galtan)
+sum(cabinet_blairIII$weighted_lrecon)
+sum(cabinet_blairIII$weighted_eu_position)
+
+# Brown
+sum(cabinet_brown$weighted_galtan)
+sum(cabinet_brown$weighted_lrecon)
+sum(cabinet_brown$weighted_eu_position)
+
+# Cameron I 
+sum(cabinet_cameronI$weighted_galtan)
+sum(cabinet_cameronI$weighted_lrecon)
+sum(cabinet_cameronI$weighted_eu_position)
+
+# Cameron II 
+sum(cabinet_cameronII$weighted_galtan)
+sum(cabinet_cameronII$weighted_lrecon)
+sum(cabinet_cameronII$weighted_eu_position)
+
+# May I
+sum(cabinet_mayI$weighted_galtan)
+sum(cabinet_mayI$weighted_lrecon)
+sum(cabinet_mayI$weighted_eu_position)
+
+# May I
+sum(cabinet_mayII$weighted_galtan)
+sum(cabinet_mayII$weighted_lrecon)
+sum(cabinet_mayII$weighted_eu_position)
+
+###Update
+
+## Getting ideology from ches
+ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 11 & year == 2019 & (party == 'CONS'))
