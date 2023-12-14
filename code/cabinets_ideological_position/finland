@@ -1,0 +1,541 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only Finland
+erdda_fin <- erdda %>%
+  filter(country_id == "Finland")
+
+# Selecting columns of interest
+erdda_fin <- erdda_fin %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_fin <- erdda_fin %>%
+  rename(SKDL = seats_party1, TPSL = seats_party2, SDP = seats_party3, 
+         VIHR = seats_party4, KESK = seats_party5, SIN = seats_party6, 
+         SMP = seats_party7, LKP = seats_party8, SKL = seats_party9, 
+         RKP = seats_party10, KOK = seats_party11, ALAND = seats_party12)
+
+# Filtering cabinets of interest (1999-2021)
+erdda_fin <- erdda_fin[c(47:58), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_fin_long <- erdda_fin %>%
+  pivot_longer(cols = SKDL:ALAND, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Lipponen II
+# Percentage of parliament seats that support the gov
+coalition_seats_lipponenII <- sum(erdda_fin_long[3, 15], erdda_fin_long[4, 15],
+                                  erdda_fin_long[10, 15], erdda_fin_long[11, 15],
+                                  erdda_fin_long[1, 15])
+
+# The weighted of the governing parties in the coalition
+# Only SDP
+erdda_fin_long[3, 16] <- erdda_fin_long[3, 15] / coalition_seats_lipponenII
+# Only VIHR
+erdda_fin_long[4, 16] <- erdda_fin_long[4, 15] / coalition_seats_lipponenII
+# Only RKP
+erdda_fin_long[10, 16] <- erdda_fin_long[10, 15] / coalition_seats_lipponenII
+# Only KOK
+erdda_fin_long[11, 16] <- erdda_fin_long[11, 15] / coalition_seats_lipponenII
+# Only SKDL
+erdda_fin_long[1, 16] <- erdda_fin_long[1, 15] / coalition_seats_lipponenII
+
+# Coalition parties weights Lipponen III
+# Percentage of parliament seats that support the gov
+coalition_seats_lipponenIII <- sum(erdda_fin_long[15, 15], erdda_fin_long[22, 15],
+                                  erdda_fin_long[23, 15], erdda_fin_long[13, 15])
+
+# The weighted of the governing parties in the coalition
+# Only SDP
+erdda_fin_long[15, 16] <- erdda_fin_long[15, 15] / coalition_seats_lipponenIII
+# Only KOK
+erdda_fin_long[23, 16] <- erdda_fin_long[23, 15] / coalition_seats_lipponenIII
+# Only RKP
+erdda_fin_long[22, 16] <- erdda_fin_long[22, 15] / coalition_seats_lipponenIII
+# Only SKDL
+erdda_fin_long[13, 16] <- erdda_fin_long[13, 15] / coalition_seats_lipponenIII
+
+# Coalition parties weights Vanhanen I
+# Percentage of parliament seats that support the gov
+coalition_seats_vanhanenI <- sum(erdda_fin_long[39, 15], erdda_fin_long[41, 15],
+                                   erdda_fin_long[46, 15])
+
+# The weighted of the governing parties in the coalition
+# Only SDP
+erdda_fin_long[39, 16] <- erdda_fin_long[39, 15] / coalition_seats_vanhanenI
+# Only KESK
+erdda_fin_long[41, 16] <- erdda_fin_long[41, 15] / coalition_seats_vanhanenI
+# Only RKP
+erdda_fin_long[46, 16] <- erdda_fin_long[46, 15] / coalition_seats_vanhanenI
+
+# Coalition parties weights Vanhanen II
+# Percentage of parliament seats that support the gov
+coalition_seats_vanhanenII <- sum(erdda_fin_long[51, 15], erdda_fin_long[53, 15],
+                                 erdda_fin_long[58, 15], erdda_fin_long[59, 15])
+
+# The weighted of the governing parties in the coalition
+# Only SDP
+erdda_fin_long[51, 16] <- erdda_fin_long[51, 15] / coalition_seats_vanhanenII
+# Only KESK
+erdda_fin_long[53, 16] <- erdda_fin_long[53, 15] / coalition_seats_vanhanenII
+# Only RKP
+erdda_fin_long[58, 16] <- erdda_fin_long[58, 15] / coalition_seats_vanhanenII
+# Only KOK
+erdda_fin_long[59, 16] <- erdda_fin_long[59, 15] / coalition_seats_vanhanenII
+
+# Coalition parties weights Katainen I
+# Percentage of parliament seats that support the gov
+coalition_seats_katainenI <- sum(erdda_fin_long[83, 15], erdda_fin_long[75, 15],
+                                  erdda_fin_long[82, 15], erdda_fin_long[76, 15],
+                                  erdda_fin_long[81, 15], erdda_fin_long[73, 15])
+
+# The weighted of the governing parties in the coalition
+# Only SDP
+erdda_fin_long[75, 16] <- erdda_fin_long[75, 15] / coalition_seats_katainenI
+# Only KOK
+erdda_fin_long[83, 16] <- erdda_fin_long[83, 15] / coalition_seats_katainenI
+# Only RKP
+erdda_fin_long[82, 16] <- erdda_fin_long[82, 15] / coalition_seats_katainenI
+# Only VIHR
+erdda_fin_long[76, 16] <- erdda_fin_long[76, 15] / coalition_seats_katainenI
+# Only SLK
+erdda_fin_long[81, 16] <- erdda_fin_long[81, 15] / coalition_seats_katainenI
+# Only SKDL
+erdda_fin_long[73, 16] <- erdda_fin_long[73, 15] / coalition_seats_katainenI
+
+# Coalition parties weights Katainen II
+# Percentage of parliament seats that support the gov
+coalition_seats_katainenII <- sum(erdda_fin_long[95, 15], erdda_fin_long[87, 15],
+                                 erdda_fin_long[94, 15], erdda_fin_long[88, 15],
+                                 erdda_fin_long[93, 15])
+
+# The weighted of the governing parties in the coalition
+# Only SDP
+erdda_fin_long[87, 16] <- erdda_fin_long[87, 15] / coalition_seats_katainenII
+# Only KOK
+erdda_fin_long[95, 16] <- erdda_fin_long[95, 15] / coalition_seats_katainenII
+# Only RKP
+erdda_fin_long[94, 16] <- erdda_fin_long[94, 15] / coalition_seats_katainenII
+# Only VIHR
+erdda_fin_long[88, 16] <- erdda_fin_long[88, 15] / coalition_seats_katainenII
+# Only SLK
+erdda_fin_long[93, 16] <- erdda_fin_long[93, 15] / coalition_seats_katainenII
+
+# Coalition parties weights Sipila I
+# Percentage of parliament seats that support the gov
+coalition_seats_sipilaI <- sum(erdda_fin_long[125, 15], erdda_fin_long[131, 15],
+                                 erdda_fin_long[127, 15])
+
+# The weighted of the governing parties in the coalition
+# Only KESK
+erdda_fin_long[125, 16] <- erdda_fin_long[125, 15] / coalition_seats_sipilaI
+# Only KOK
+erdda_fin_long[131, 16] <- erdda_fin_long[131, 15] / coalition_seats_sipilaI
+# Only SMP
+erdda_fin_long[127, 16] <- erdda_fin_long[127, 15] / coalition_seats_sipilaI
+
+# Coalition parties weights Sipila II
+# Percentage of parliament seats that support the gov
+coalition_seats_sipilaII <- sum(erdda_fin_long[137, 15], erdda_fin_long[143, 15],
+                               erdda_fin_long[138, 15])
+
+# The weighted of the governing parties in the coalition
+# Only KESK
+erdda_fin_long[137, 16] <- erdda_fin_long[137, 15] / coalition_seats_sipilaII
+# Only KOK
+erdda_fin_long[143, 16] <- erdda_fin_long[143, 15] / coalition_seats_sipilaII
+# Only SIN
+erdda_fin_long[138, 16] <- erdda_fin_long[138, 15] / coalition_seats_sipilaII
+
+#----
+# Section: ideologies
+#-----
+# Lipponen II
+cabinet_lipponenII <- erdda_fin_long %>%
+  filter(cab_name == 'Lipponen II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_lipponenII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 14 & year == 1999 & (party == 'SDP' | party == 'KOK' | 
+                                          party == 'SFP' | party == 'VAS'
+                                         | party == 'VIHR'))
+
+# Fixing name, from SFP to RKP and VAS to SKDL
+ches_lipponenII[2, 2] <- 'RKP'
+ches_lipponenII[3, 2] <- 'SKDL'
+
+## Adding to the cabinet dataframe
+cabinet_lipponenII <- cabinet_lipponenII %>%
+  left_join(ches_lipponenII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Lipponen III
+cabinet_lipponenIII <- erdda_fin_long %>%
+  filter(cab_name == 'Lipponen III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_lipponenIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 14 & year == 2002 & (party == 'SDP' | party == 'KOK' | 
+                                           party == 'SFP' | party == 'VAS'))
+
+# Fixing name, from SFP to RKP and VAS to SKDL
+ches_lipponenIII[1, 2] <- 'RKP'
+ches_lipponenIII[3, 2] <- 'SKDL'
+
+## Adding to the cabinet dataframe
+cabinet_lipponenIII <- cabinet_lipponenIII %>%
+  left_join(ches_lipponenIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Vanhanen I
+cabinet_vanhanenI <- erdda_fin_long %>%
+  filter(cab_name == 'Vanhanen I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_vanhanenI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 14 & year == 2002 & (party == 'SDP' | party == 'KESK' | 
+                                           party == 'SFP'))
+
+# Fixing name, from SFP to RKP and VAS to SKDL
+ches_vanhanenI[1, 2] <- 'RKP'
+
+## Adding to the cabinet dataframe
+cabinet_vanhanenI <- cabinet_vanhanenI %>%
+  left_join(ches_vanhanenI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Vanhanen II
+cabinet_vanhanenII <- erdda_fin_long %>%
+  filter(cab_name == 'Vanhanen II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_vanhanenII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 14 & year == 2006 & (party == 'SDP' | party == 'KESK' | 
+                                           party == 'SFP' | party == 'KOK'))
+
+# Fixing name, from SFP to RKP and VAS to SKDL
+ches_vanhanenII[3, 2] <- 'RKP'
+
+## Adding to the cabinet dataframe
+cabinet_vanhanenII <- cabinet_vanhanenII %>%
+  left_join(ches_vanhanenII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Katainen I
+cabinet_katainenI <- erdda_fin_long %>%
+  filter(cab_name == 'Katainen I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_katainenI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 14 & year == 2010 & (party == 'KOK' | party == 'SDP' | 
+                                           party == 'SFP' | party == 'VIHR' | 
+                                           party == 'KD' | party == 'VAS'))
+
+# Fixing name, from SFP to RKP and VAS to SKDL and KD to SKL
+ches_katainenI[6, 2] <- 'RKP'
+ches_katainenI[4, 2] <- 'SKDL'
+ches_katainenI[5, 2] <- 'SKL'
+
+## Adding to the cabinet dataframe
+cabinet_katainenI <- cabinet_katainenI %>%
+  left_join(ches_katainenI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Katainen II
+cabinet_katainenII <- erdda_fin_long %>%
+  filter(cab_name == 'Katainen II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_katainenII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 14 & year == 2014 & (party == 'KOK' | party == 'SDP' | 
+                                           party == 'RKP/SFP' | party == 'VIHR' | 
+                                           party == 'KD'))
+
+# Fixing name, from SFP to RKP and KD to SKL
+ches_katainenII[5, 2] <- 'RKP'
+ches_katainenII[2, 2] <- 'SKL'
+
+## Adding to the cabinet dataframe
+cabinet_katainenII <- cabinet_katainenII %>%
+  left_join(ches_katainenII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Sipila I
+cabinet_sipilaI <- erdda_fin_long %>%
+  filter(cab_name == 'Sipilä I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_sipilaI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 14 & year == 2014 & (party == 'KESK' | party == 'KOK' | 
+                                           party == 'PS'))
+
+# Fixing name, from PS to SMP and KD to SKL
+ches_sipilaI[2, 2] <- 'SMP'
+
+## Adding to the cabinet dataframe
+cabinet_sipilaI <- cabinet_sipilaI %>%
+  left_join(ches_sipilaI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Sipila I
+cabinet_sipilaII <- erdda_fin_long %>%
+  filter(cab_name == 'Sipilä II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_sipilaII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 14 & year == 2019 & (party == 'KESK' | party == 'KOK' | 
+                                           party == 'PS'))
+
+# Fixing name, from PS to SMP and KD to SKL
+ches_sipilaII[3, 2] <- 'SIN'
+
+## Adding to the cabinet dataframe
+cabinet_sipilaII <- cabinet_sipilaII %>%
+  left_join(ches_sipilaII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Lipponen II
+sum(cabinet_lipponenII$weighted_galtan)
+sum(cabinet_lipponenII$weighted_lrecon)
+sum(cabinet_lipponenII$weighted_eu_position)
+
+# Lipponen III
+sum(cabinet_lipponenIII$weighted_galtan)
+sum(cabinet_lipponenIII$weighted_lrecon)
+sum(cabinet_lipponenIII$weighted_eu_position)
+
+# Vanhanen I
+sum(cabinet_vanhanenI$weighted_galtan)
+sum(cabinet_vanhanenI$weighted_lrecon)
+sum(cabinet_vanhanenI$weighted_eu_position)
+
+# Vanhanen II
+sum(cabinet_vanhanenII$weighted_galtan)
+sum(cabinet_vanhanenII$weighted_lrecon)
+sum(cabinet_vanhanenII$weighted_eu_position)
+
+# Katainen I
+sum(cabinet_katainenI$weighted_galtan)
+sum(cabinet_katainenI$weighted_lrecon)
+sum(cabinet_katainenI$weighted_eu_position)
+
+# Katainen II
+sum(cabinet_katainenII$weighted_galtan)
+sum(cabinet_katainenII$weighted_lrecon)
+sum(cabinet_katainenII$weighted_eu_position)
+
+# Sipila I
+sum(cabinet_sipilaI$weighted_galtan)
+sum(cabinet_sipilaI$weighted_lrecon)
+sum(cabinet_sipilaI$weighted_eu_position)
+
+# Sipila II
+sum(cabinet_sipilaII$weighted_galtan)
+sum(cabinet_sipilaII$weighted_lrecon)
+sum(cabinet_sipilaII$weighted_eu_position)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Croatia
+erdda_fin_new <- erdda_new %>%
+  filter(country_name == "Finland")
+
+# Selecting columns of interest
+erdda_fin_new <- erdda_fin_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_fin_new <- erdda_fin_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "SKDL",
+    . == "seats_party2" ~ "TPSL",
+    . == "seats_party3" ~ "SDP",
+    . == "seats_party4" ~ "VIHR",
+    . == "seats_party5" ~ "KESK",
+    . == "seats_party6" ~ "SIN",
+    . == "seats_party7" ~ "SMP",
+    . == "seats_party8" ~ "LKP",
+    . == "seats_party9" ~ "SKL",
+    . == "seats_party10" ~ "RKP",
+    . == "seats_party11" ~ "KOK",
+    . == "seats_party12" ~ "AS",
+    . == "seats_party13" ~ "LN",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest
+erdda_fin_new <- erdda_fin_new[c(46:60), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_fin_new_long <- erdda_fin_new %>%
+  pivot_longer(cols = SKDL:LN, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_fin_new_long <- erdda_fin_new_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Lipponen I
+# Percentage of parliament seats that support the gov
+coalition_seats_lipponenI <- sum(erdda_fin_new_long[1, 16], erdda_fin_new_long[2, 16],
+                                 erdda_fin_new_long[3, 16], erdda_fin_new_long[7, 16],
+                                 erdda_fin_new_long[8, 16])
+
+# The weighted of the governing parties in the coalition
+# Only SDP
+erdda_fin_new_long[2, 17] <- erdda_fin_new_long[2, 16] / coalition_seats_lipponenI
+# Only VIHR
+erdda_fin_new_long[3, 17] <- erdda_fin_new_long[3, 16] / coalition_seats_lipponenI
+# Only RKP
+erdda_fin_new_long[7, 17] <- erdda_fin_new_long[7, 16] / coalition_seats_lipponenI
+# Only KOK
+erdda_fin_new_long[8, 17] <- erdda_fin_new_long[8, 16] / coalition_seats_lipponenI
+# Only SKDL
+erdda_fin_new_long[1, 17] <- erdda_fin_new_long[1, 16] / coalition_seats_lipponenI
+
+# Coalition parties weights Marin
+# Percentage of parliament seats that support the gov
+coalition_seats_marin <- sum(erdda_fin_new_long[117, 16], erdda_fin_new_long[119, 16],
+                             erdda_fin_new_long[116, 16], erdda_fin_new_long[118, 16],
+                             erdda_fin_new_long[122, 16])
+
+# The weighted of the governing parties in the coalition
+# Only SDP
+erdda_fin_new_long[117, 17] <- erdda_fin_new_long[117, 16] / coalition_seats_marin
+# Only VIHR
+erdda_fin_new_long[118, 17] <- erdda_fin_new_long[118, 16] / coalition_seats_marin
+# Only RKP
+erdda_fin_new_long[122, 17] <- erdda_fin_new_long[122, 16] / coalition_seats_marin
+# Only KESK
+erdda_fin_new_long[119, 17] <- erdda_fin_new_long[119, 16] / coalition_seats_marin
+# Only SKDL
+erdda_fin_new_long[116, 17] <- erdda_fin_new_long[116, 16] / coalition_seats_marin
+
+#----
+# Section: ideologies
+#-----
+# Lipponen I
+cabinet_lipponenI <- erdda_fin_new_long %>%
+  filter(cab_name == 'Lipponen I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_lipponenI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 14 & year == 1999 & (party == 'SDP' | party == 'KOK' | 
+                                           party == 'SFP' | party == 'VAS'
+                                         | party == 'VIHR'))
+
+# Fixing name, from SFP to RKP and VAS to SKDL
+ches_lipponenI[2, 2] <- 'RKP'
+ches_lipponenI[3, 2] <- 'SKDL'
+
+## Adding to the cabinet dataframe
+cabinet_lipponenI <- cabinet_lipponenI %>%
+  left_join(ches_lipponenI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Marin
+cabinet_marin <- erdda_fin_new_long %>%
+  filter(cab_name == 'Marin' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_marin <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 14 & year == 2019 & (party == 'SDP' | party == 'KESK' | 
+                                           party == 'SFP' | party == 'VAS'
+                                         | party == 'VIHR'))
+
+# Fixing name, from SFP to RKP and VAS to SKDL
+ches_marin[3, 2] <- 'RKP'
+ches_marin[1, 2] <- 'SKDL'
+
+## Adding to the cabinet dataframe
+cabinet_marin <- cabinet_marin %>%
+  left_join(ches_marin, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Lipponen I
+sum(cabinet_lipponenI$weighted_galtan)
+sum(cabinet_lipponenI$weighted_lrecon)
+sum(cabinet_lipponenI$weighted_eu_position)
+
+# Marin
+sum(cabinet_marin$weighted_galtan)
+sum(cabinet_marin$weighted_lrecon)
+sum(cabinet_marin$weighted_eu_position)
