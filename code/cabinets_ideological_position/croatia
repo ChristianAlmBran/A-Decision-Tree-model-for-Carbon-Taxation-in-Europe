@@ -1,0 +1,377 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+erdda_new <- read.csv('erdda_new.csv')
+ches <- read.csv("ches.csv")
+  
+# filtering only Croatia
+erdda_cro <- erdda %>%
+  filter(country_id == "Croatia")
+
+# Selecting columns of interest
+erdda_cro <- erdda_cro %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_cro <- erdda_cro %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "SKH-SDP",
+    . == "seats_party3" ~ "SNS",
+    . == "seats_party4" ~ "HLSR",
+    . == "seats_party5" ~ "ZZ",
+    . == "seats_party6" ~ "IDS",
+    . == "seats_party7" ~ "SDP",
+    . == "seats_party8" ~ "SDSS",
+    . == "seats_party9" ~ "HNS",
+    . == "seats_party10" ~ "LIBRA",
+    . == "seats_party11" ~ "LS",
+    . == "seats_party12" ~ "HSLS",
+    . == "seats_party13" ~ "HSU",
+    . == "seats_party14" ~ "HSS",
+    . == "seats_party15" ~ "Most",
+    . == "seats_party16" ~ "DC",
+    . == "seats_party17" ~ "HDZ",
+    . == "seats_party18" ~ "HKDU",
+    . == "seats_party19" ~ "HDS",
+    . == "seats_party20" ~ "HDSSB",
+    . == "seats_party21" ~ "HSP-AS",
+    . == "seats_party22" ~ "HSP",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest (1999-2021)
+erdda_cro <- erdda_cro[c(8:21), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_cro_long <- erdda_cro %>%
+  pivot_longer(cols = `SKH-SDP`:seats_party23, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_cro_long <- erdda_cro_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Matesa 
+# Percentage of parliament seats that support the gov
+coalition_seats_matesa <- sum(erdda_cro_long[7, 21])
+
+# The weighted of the governing parties in the coalition
+# Only HDZ
+erdda_cro_long[7, 22] <- erdda_cro_long[7, 21] / coalition_seats_matesa
+
+# Coalition parties weights Racan I 
+# Percentage of parliament seats that support the gov
+coalition_seats_racanI <- sum(erdda_cro_long[13, 21], erdda_cro_long[16, 21],
+                              erdda_cro_long[14, 21], erdda_cro_long[17, 21],
+                              erdda_cro_long[12, 21], erdda_cro_long[15, 21])
+
+# The weighted of the governing parties in the coalition
+# Only IDS
+erdda_cro_long[12, 22] <- erdda_cro_long[12, 21] / coalition_seats_racanI
+# Only SDP
+erdda_cro_long[13, 22] <- erdda_cro_long[13, 21] / coalition_seats_racanI
+# Only HNS
+erdda_cro_long[14, 22] <- erdda_cro_long[14, 21] / coalition_seats_racanI
+# Only LS
+erdda_cro_long[15, 22] <- erdda_cro_long[15, 21] / coalition_seats_racanI
+# Only HSLS
+erdda_cro_long[16, 22] <- erdda_cro_long[16, 21] / coalition_seats_racanI
+# Only HSS
+erdda_cro_long[17, 22] <- erdda_cro_long[17, 21] / coalition_seats_racanI
+
+# Coalition parties weights Racan II 
+# Percentage of parliament seats that support the gov
+coalition_seats_racanII <- sum(erdda_cro_long[24, 21], erdda_cro_long[25, 21],
+                              erdda_cro_long[26, 21], erdda_cro_long[27, 21],
+                              erdda_cro_long[28, 21])
+
+# The weighted of the governing parties in the coalition
+# Only SDP
+erdda_cro_long[24, 22] <- erdda_cro_long[24, 21] / coalition_seats_racanII
+# Only HNS
+erdda_cro_long[25, 22] <- erdda_cro_long[25, 21] / coalition_seats_racanII
+# Only LS
+erdda_cro_long[26, 22] <- erdda_cro_long[26, 21] / coalition_seats_racanII
+# Only HSLS
+erdda_cro_long[27, 22] <- erdda_cro_long[27, 21] / coalition_seats_racanII
+# Only HSS
+erdda_cro_long[28, 22] <- erdda_cro_long[28, 21] / coalition_seats_racanII
+
+# Coalition parties weights Racan III 
+# Percentage of parliament seats that support the gov
+coalition_seats_racanIII <- sum(erdda_cro_long[36, 21], erdda_cro_long[37, 21],
+                               erdda_cro_long[38, 21], erdda_cro_long[39, 21],
+                               erdda_cro_long[41, 21])
+
+# The weighted of the governing parties in the coalition
+# Only SDP
+erdda_cro_long[36, 22] <- erdda_cro_long[36, 21] / coalition_seats_racanIII
+# Only HNS
+erdda_cro_long[37, 22] <- erdda_cro_long[37, 21] / coalition_seats_racanIII
+# Only LS
+erdda_cro_long[39, 22] <- erdda_cro_long[39, 21] / coalition_seats_racanIII
+# Only Libra
+erdda_cro_long[38, 22] <- erdda_cro_long[38, 21] / coalition_seats_racanIII
+# Only HSS
+erdda_cro_long[41, 22] <- erdda_cro_long[41, 21] / coalition_seats_racanIII
+
+# Coalition parties weights Sanader I 
+# Percentage of parliament seats that support the gov
+coalition_seats_sanaderI <- sum(erdda_cro_long[49, 21], erdda_cro_long[53, 21],
+                                erdda_cro_long[54, 21], erdda_cro_long[56, 21],
+                                erdda_cro_long[57, 21])
+
+# The weighted of the governing parties in the coalition
+# Only SDSS
+erdda_cro_long[49, 22] <- erdda_cro_long[49, 21] / coalition_seats_sanaderI
+# Only HSLS
+erdda_cro_long[53, 22] <- erdda_cro_long[53, 21] / coalition_seats_sanaderI
+# Only HSU
+erdda_cro_long[54, 22] <- erdda_cro_long[54, 21] / coalition_seats_sanaderI
+# Only DC
+erdda_cro_long[56, 22] <- erdda_cro_long[56, 21] / coalition_seats_sanaderI
+# Only HDZ
+erdda_cro_long[57, 22] <- erdda_cro_long[57, 21] / coalition_seats_sanaderI
+
+# Coalition parties weights Sanader II 
+# Percentage of parliament seats that support the gov
+coalition_seats_sanaderII <- sum(erdda_cro_long[62, 21], erdda_cro_long[66, 21],
+                                 erdda_cro_long[67, 21], erdda_cro_long[70, 21])
+
+# The weighted of the governing parties in the coalition
+# Only SDSS
+erdda_cro_long[62, 22] <- erdda_cro_long[62, 21] / coalition_seats_sanaderII
+# Only HSLS
+erdda_cro_long[66, 22] <- erdda_cro_long[66, 21] / coalition_seats_sanaderII
+# Only HSU
+erdda_cro_long[67, 22] <- erdda_cro_long[67, 21] / coalition_seats_sanaderII
+# Only HDZ
+erdda_cro_long[70, 22] <- erdda_cro_long[70, 21] / coalition_seats_sanaderII
+
+# Coalition parties weights Sanader III 
+# Percentage of parliament seats that support the gov
+coalition_seats_sanaderIII <- sum(erdda_cro_long[75, 21], erdda_cro_long[77, 21],
+                                 erdda_cro_long[78, 21], erdda_cro_long[79, 21],
+                                 erdda_cro_long[80, 21])
+
+# The weighted of the governing parties in the coalition
+# Only SDSS
+erdda_cro_long[75, 22] <- erdda_cro_long[75, 21] / coalition_seats_sanaderIII
+# Only HSLS
+erdda_cro_long[77, 22] <- erdda_cro_long[77, 21] / coalition_seats_sanaderIII
+# Only HSU
+erdda_cro_long[78, 22] <- erdda_cro_long[78, 21] / coalition_seats_sanaderIII
+# Only HSS
+erdda_cro_long[79, 22] <- erdda_cro_long[79, 21] / coalition_seats_sanaderIII
+# Only HDZ
+erdda_cro_long[80, 22] <- erdda_cro_long[80, 21] / coalition_seats_sanaderIII
+
+# Coalition parties weights Kosor I
+# Percentage of parliament seats that support the gov
+coalition_seats_kosorI <- sum(erdda_cro_long[88, 21], erdda_cro_long[90, 21],
+                              erdda_cro_long[91, 21])
+
+# The weighted of the governing parties in the coalition
+# Only HSLS
+erdda_cro_long[88, 22] <- erdda_cro_long[88, 21] / coalition_seats_kosorI
+# Only HSS
+erdda_cro_long[90, 22] <- erdda_cro_long[90, 21] / coalition_seats_kosorI
+# Only HDZ
+erdda_cro_long[91, 22] <- erdda_cro_long[91, 21] / coalition_seats_kosorI
+
+# Coalition parties weights Kosor II
+# Percentage of parliament seats that support the gov
+coalition_seats_kosorII <- sum(erdda_cro_long[101, 21], erdda_cro_long[102, 21])
+
+# The weighted of the governing parties in the coalition
+# Only HSS
+erdda_cro_long[101, 22] <- erdda_cro_long[101, 21] / coalition_seats_kosorII
+# Only HDZ
+erdda_cro_long[102, 22] <- erdda_cro_long[102, 21] / coalition_seats_kosorII
+
+# Coalition parties weights Milanovic
+# Percentage of parliament seats that support the gov
+coalition_seats_milanovic <- sum(erdda_cro_long[107, 21], erdda_cro_long[108, 21],
+                                 erdda_cro_long[110, 21])
+
+# The weighted of the governing parties in the coalition
+# Only IDS
+erdda_cro_long[107, 22] <- erdda_cro_long[107, 21] / coalition_seats_milanovic
+# Only SPD
+erdda_cro_long[108, 22] <- erdda_cro_long[108, 21] / coalition_seats_milanovic
+# Only HNS
+erdda_cro_long[110, 22] <- erdda_cro_long[110, 21] / coalition_seats_milanovic
+
+# Coalition parties weights Oreskovic
+# Percentage of parliament seats that support the gov
+coalition_seats_milanovic <- sum(erdda_cro_long[127, 21], erdda_cro_long[128, 21])
+
+# The weighted of the governing parties in the coalition
+# Only Most
+erdda_cro_long[127, 22] <- erdda_cro_long[127, 21] / coalition_seats_milanovic
+# Only HDZ
+erdda_cro_long[128, 22] <- erdda_cro_long[128, 21] / coalition_seats_milanovic
+
+# Coalition parties weights Plenkovic III
+# Percentage of parliament seats that support the gov
+coalition_seats_plenkovicIII <- sum(erdda_cro_long[162, 21], erdda_cro_long[163, 21],
+                                    erdda_cro_long[164, 21], erdda_cro_long[168, 21])
+
+# The weighted of the governing parties in the coalition
+# Only SDSS
+erdda_cro_long[162, 22] <- erdda_cro_long[162, 21] / coalition_seats_plenkovicIII
+# Only HNS
+erdda_cro_long[163, 22] <- erdda_cro_long[163, 21] / coalition_seats_plenkovicIII
+# Only HSLS
+erdda_cro_long[164, 22] <- erdda_cro_long[164, 21] / coalition_seats_plenkovicIII
+# Only HDZ
+erdda_cro_long[168, 22] <- erdda_cro_long[168, 21] / coalition_seats_plenkovicIII
+
+#----
+# Section: ideologies
+#-----
+# Kosor I
+cabinet_kosorI <- erdda_cro_long %>%
+  filter(cab_name == 'Kosor I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_kosorI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 31 & year == 2014 & (party == 'HDZ' | party == 'HSS' |
+                                           party == 'HSLS'))
+
+## Adding to the cabinet dataframe
+cabinet_kosorI <- cabinet_kosorI %>%
+  left_join(ches_kosorI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Kosor II
+cabinet_kosorII <- erdda_cro_long %>%
+  filter(cab_name == 'Kosor II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_kosorII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 31 & year == 2014 & (party == 'HDZ' | party == 'HSS'))
+
+## Adding to the cabinet dataframe
+cabinet_kosorII <- cabinet_kosorII %>%
+  left_join(ches_kosorI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Milanovic
+cabinet_milanovic <- erdda_cro_long %>%
+  filter(cab_name == 'Milanovic' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_milanovic <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 31 & year == 2014 & (party == 'SDP' | party == 'HNS' |
+                                           party == 'IDS'))
+
+## Adding to the cabinet dataframe
+cabinet_milanovic <- cabinet_milanovic %>%
+  left_join(ches_milanovic, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Oreskovic
+cabinet_Oreskovic <- erdda_cro_long %>%
+  filter(cab_name == 'Oreskovic' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_Oreskovic <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 31 & year == 2019 & (party == 'HDZ' | party == 'Most'))
+
+## Adding to the cabinet dataframe
+cabinet_Oreskovic <- cabinet_Oreskovic %>%
+  left_join(ches_Oreskovic, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Plenkovic III
+cabinet_plenkovic <- erdda_cro_long %>%
+  filter(cab_name == 'Plenkovic III' & !is.na(party_weight_coalition))
+
+
+## Getting ideology from ches
+ches_plenkovic <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 31 & year == 2019 & (party == 'HDZ' | party == 'HNS' |
+                                           party == 'SDSS' | party == 'HSLS'))
+
+## Adding to the cabinet dataframe
+cabinet_plenkovic <- cabinet_plenkovic %>%
+  left_join(ches_plenkovic, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Kosor I
+sum(cabinet_kosorI$weighted_galtan)
+sum(cabinet_kosorI$weighted_lrecon)
+sum(cabinet_kosorI$weighted_eu_position)
+
+# Kosor II
+sum(cabinet_kosorII$weighted_galtan)
+sum(cabinet_kosorII$weighted_lrecon)
+sum(cabinet_kosorII$weighted_eu_position)
+
+# Milanovic
+sum(cabinet_milanovic$weighted_galtan)
+sum(cabinet_milanovic$weighted_lrecon)
+sum(cabinet_milanovic$weighted_eu_position)
+
+# Oreskovic
+sum(cabinet_Oreskovic$weighted_galtan)
+sum(cabinet_Oreskovic$weighted_lrecon)
+sum(cabinet_Oreskovic$weighted_eu_position)
+
+# Plenkovic III
+sum(cabinet_plenkovic$weighted_galtan)
+sum(cabinet_plenkovic$weighted_lrecon)
+sum(cabinet_plenkovic$weighted_eu_position)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Croatia
+erdda_cro_new <- erdda_new %>%
+  filter(country_name == "Croatia")
+
+# Selecting columns of interest
+erdda_cro_new <- erdda_cro_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
