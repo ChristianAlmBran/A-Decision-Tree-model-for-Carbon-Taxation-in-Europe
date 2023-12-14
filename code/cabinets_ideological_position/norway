@@ -1,0 +1,255 @@
+
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+ches2014 <- read.csv('ches2014.csv')
+ches2019 <- read.csv('ches2019.csv')
+
+# Ajusting Ches2014 column name
+colnames(ches2014)[4] <- "party" 
+
+# filtering only Norway
+erdda_nor_new <- erdda_new %>%
+  filter(country_name == "Norway")
+
+# Selecting columns of interest
+erdda_nor_new <- erdda_nor_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_nor_new <- erdda_nor_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "NKP-RV",
+    . == "seats_party2" ~ "SV",
+    . == "seats_party3" ~ "Ap",
+    . == "seats_party4" ~ "V",
+    . == "seats_party5" ~ "KrF",
+    . == "seats_party6" ~ "Sp",
+    . == "seats_party7" ~ "DLF",
+    . == "seats_party8" ~ "H",
+    . == "seats_party9" ~ "FrP",
+    . == "seats_party10" ~ "MDG",
+    . == "seats_party11" ~ "RD",
+    . == "seats_party12" ~ "PF",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest
+erdda_nor_new <- erdda_nor_new[c(30:34), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_nor_new_long <- erdda_nor_new %>%
+  pivot_longer(cols = `NKP-RV`:PF, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_nor_new_long <- erdda_nor_new_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Stoltenberg III
+# Percentage of parliament seats that support the gov
+coalition_seats_stoltenbergIII <- sum(erdda_nor_new_long[1, 15], erdda_nor_new_long[2, 15],
+                                      erdda_nor_new_long[5, 15])
+
+# The weighted of the governing parties in the coalition
+# Only SV
+erdda_nor_new_long[1, 16] <- erdda_nor_new_long[1, 15] / coalition_seats_stoltenbergIII
+# Only Ap
+erdda_nor_new_long[2, 16] <- erdda_nor_new_long[2, 15] / coalition_seats_stoltenbergIII
+# Only Sp
+erdda_nor_new_long[5, 16] <- erdda_nor_new_long[5, 15] / coalition_seats_stoltenbergIII
+
+# Coalition parties weights Solberg I
+# Percentage of parliament seats that support the gov
+coalition_seats_solbergI <- sum(erdda_nor_new_long[10, 15], erdda_nor_new_long[11, 15],
+                                erdda_nor_new_long[13, 15], erdda_nor_new_long[14, 15])
+
+# The weighted of the governing parties in the coalition
+# Only v
+erdda_nor_new_long[10, 16] <- erdda_nor_new_long[10, 15] / coalition_seats_solbergI
+# Only KrF
+erdda_nor_new_long[11, 16] <- erdda_nor_new_long[11, 15] / coalition_seats_solbergI
+# Only H
+erdda_nor_new_long[13, 16] <- erdda_nor_new_long[13, 15] / coalition_seats_solbergI
+# Only FrP
+erdda_nor_new_long[14, 16] <- erdda_nor_new_long[14, 15] / coalition_seats_solbergI
+
+# Coalition parties weights Solberg II
+# Percentage of parliament seats that support the gov
+coalition_seats_solbergII <- sum(erdda_nor_new_long[18, 15], erdda_nor_new_long[21, 15],
+                                erdda_nor_new_long[22, 15])
+
+# The weighted of the governing parties in the coalition
+# Only v
+erdda_nor_new_long[18, 16] <- erdda_nor_new_long[18, 15] / coalition_seats_solbergII
+# Only H
+erdda_nor_new_long[21, 16] <- erdda_nor_new_long[21, 15] / coalition_seats_solbergII
+# Only FrP
+erdda_nor_new_long[22, 16] <- erdda_nor_new_long[22, 15] / coalition_seats_solbergII
+
+# Coalition parties weights Solberg III
+# Percentage of parliament seats that support the gov
+coalition_seats_solbergIII <- sum(erdda_nor_new_long[26, 15], erdda_nor_new_long[27, 15],
+                                  erdda_nor_new_long[29, 15], erdda_nor_new_long[30, 15])
+
+# The weighted of the governing parties in the coalition
+# Only v
+erdda_nor_new_long[26, 16] <- erdda_nor_new_long[26, 15] / coalition_seats_solbergIII
+# Only KrF
+erdda_nor_new_long[27, 16] <- erdda_nor_new_long[27, 15] / coalition_seats_solbergIII
+# Only H
+erdda_nor_new_long[29, 16] <- erdda_nor_new_long[29, 15] / coalition_seats_solbergIII
+# Only FrP
+erdda_nor_new_long[30, 16] <- erdda_nor_new_long[30, 15] / coalition_seats_solbergIII
+
+# Coalition parties weights Solberg IV
+# Percentage of parliament seats that support the gov
+coalition_seats_solbergIV <- sum(erdda_nor_new_long[34, 15], erdda_nor_new_long[35, 15],
+                                  erdda_nor_new_long[37, 15])
+
+# The weighted of the governing parties in the coalition
+# Only v
+erdda_nor_new_long[34, 16] <- erdda_nor_new_long[34, 15] / coalition_seats_solbergIV
+# Only KrF
+erdda_nor_new_long[35, 16] <- erdda_nor_new_long[35, 15] / coalition_seats_solbergIV
+# Only H
+erdda_nor_new_long[37, 16] <- erdda_nor_new_long[37, 15] / coalition_seats_solbergIV
+
+#----
+# Section: ideologies
+#-----
+# Stoltenberg III
+cabinet_stoltenbergIII <- erdda_nor_new_long %>%
+  filter(cab_name == 'Stoltenberg III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_stoltenbergIII <- ches2014 %>%
+  select(party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 35 & (party == 'AP' | party == 'SV' | 
+                            party == 'Sp'))
+
+# Fixing AP name to Ap
+ches_stoltenbergIII[1,1] <- "Ap"
+
+## Adding to the cabinet dataframe
+cabinet_stoltenbergIII <- cabinet_stoltenbergIII %>%
+  left_join(ches_stoltenbergIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Solberg I
+cabinet_solbergI <- erdda_nor_new_long %>%
+  filter(cab_name == 'Solberg I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_solbergI <- ches2014 %>%
+  select(party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 35 & (party == 'H' | party == 'FrP' | 
+                          party == 'KrF' | party == 'V'))
+
+
+## Adding to the cabinet dataframe
+cabinet_solbergI <- cabinet_solbergI %>%
+  left_join(ches_solbergI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Solberg II
+cabinet_solbergII <- erdda_nor_new_long %>%
+  filter(cab_name == 'Solberg II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_solbergII <- ches2019 %>%
+  select(party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 35 & (party == 'H' | party == 'FrP' | 
+                          party == 'V' ))
+
+
+## Adding to the cabinet dataframe
+cabinet_solbergII <- cabinet_solbergII %>%
+  left_join(ches_solbergII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Solberg III
+cabinet_solbergIII <- erdda_nor_new_long %>%
+  filter(cab_name == 'Solberg III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_solbergIII <- ches2019 %>%
+  select(party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 35 & (party == 'H' | party == 'FrP' | 
+                            party == 'V' | party == 'KrF'))
+
+
+## Adding to the cabinet dataframe
+cabinet_solbergIII <- cabinet_solbergIII %>%
+  left_join(ches_solbergIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Solberg IV
+cabinet_solbergIV <- erdda_nor_new_long %>%
+  filter(cab_name == 'Solberg IV' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_solbergIV <- ches2019 %>%
+  select(party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 35 & (party == 'H' | 
+                            party == 'V' | party == 'KrF'))
+
+
+## Adding to the cabinet dataframe
+cabinet_solbergIV <- cabinet_solbergIV %>%
+  left_join(ches_solbergIV, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Stoltenberg III 
+round(sum(cabinet_stoltenbergIII$weighted_galtan), 2)
+round(sum(cabinet_stoltenbergIII$weighted_lrecon), 2)
+round(sum(cabinet_stoltenbergIII$weighted_eu_position), 2)
+
+# Solberg I
+round(sum(cabinet_solbergI$weighted_galtan), 2)
+round(sum(cabinet_solbergI$weighted_lrecon), 2)
+round(sum(cabinet_solbergI$weighted_eu_position), 2)
+
+# Solberg II
+round(sum(cabinet_solbergII$weighted_galtan), 2)
+round(sum(cabinet_solbergII$weighted_lrecon), 2)
+round(sum(cabinet_solbergII$weighted_eu_position), 2)
+
+# Solberg III
+round(sum(cabinet_solbergIII$weighted_galtan), 2)
+round(sum(cabinet_solbergIII$weighted_lrecon), 2)
+round(sum(cabinet_solbergIII$weighted_eu_position), 2)
+
+# Solberg IV
+round(sum(cabinet_solbergIV$weighted_galtan), 2)
+round(sum(cabinet_solbergIV$weighted_lrecon), 2)
+round(sum(cabinet_solbergIV$weighted_eu_position), 2)
