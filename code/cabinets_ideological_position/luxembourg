@@ -1,0 +1,212 @@
+# Importing databases
+erdda_new <- read.csv('erdda_new.csv')
+ches <- read.csv("ches.csv")
+
+# filtering only Luxembourg
+erdda_lux_new <- erdda_new %>%
+  filter(country_name == "Luxembourg")
+
+# Selecting columns of interest
+erdda_lux_new <- erdda_lux_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_lux_new <- erdda_lux_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "CSV",
+    . == "seats_party2" ~ "LSAP",
+    . == "seats_party3" ~ "DP",
+    . == "seats_party4" ~ "KPL",
+    . == "seats_party5" ~ "Greng",
+    . == "seats_party6" ~ "SDP",
+    . == "seats_party7" ~ "GAP",
+    . == "seats_party8" ~ "GLEI",
+    . == "seats_party9" ~ "ADR",
+    . == "seats_party10" ~ "EF",
+    . == "seats_party11" ~ "SI",
+    . == "seats_party12" ~ "MIP",
+    . == "seats_party13" ~ "PIE",
+    . == "seats_party14" ~ "DL",
+    . == "seats_party15" ~ "Pi",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest
+erdda_lux_new <- erdda_lux_new[c(16:21), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_lux_new_long <- erdda_lux_new %>%
+  pivot_longer(cols = CSV:Pi, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_lux_new_long <- erdda_lux_new_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Juncker I
+# Percentage of parliament seats that support the gov
+coalition_seats_junckerI <- sum(erdda_lux_new_long[1, 13], erdda_lux_new_long[2, 13])
+
+# The weighted of the governing parties in the coalition
+# Only CSV
+erdda_lux_new_long[1, 14] <- erdda_lux_new_long[1, 13] / coalition_seats_junckerI
+# Only LSAP
+erdda_lux_new_long[2, 14] <- erdda_lux_new_long[2, 13] / coalition_seats_junckerI
+
+# Coalition parties weights Juncker II
+# Percentage of parliament seats that support the gov
+coalition_seats_junckerII <- sum(erdda_lux_new_long[6, 13], erdda_lux_new_long[8, 13])
+
+# The weighted of the governing parties in the coalition
+# Only CSV
+erdda_lux_new_long[6, 14] <- erdda_lux_new_long[6, 13] / coalition_seats_junckerII
+# Only DP
+erdda_lux_new_long[8, 14] <- erdda_lux_new_long[8, 13] / coalition_seats_junckerII
+
+# Coalition parties weights Juncker III
+# Percentage of parliament seats that support the gov
+coalition_seats_junckerIII <- sum(erdda_lux_new_long[12, 13], erdda_lux_new_long[13, 13])
+
+# The weighted of the governing parties in the coalition
+# Only CSV
+erdda_lux_new_long[12, 14] <- erdda_lux_new_long[12, 13] / coalition_seats_junckerIII
+# Only LSAP
+erdda_lux_new_long[13, 14] <- erdda_lux_new_long[13, 13] / coalition_seats_junckerIII
+
+# Coalition parties weights Juncker IV
+# Percentage of parliament seats that support the gov
+coalition_seats_junckerIV <- sum(erdda_lux_new_long[17, 13], erdda_lux_new_long[18, 13])
+
+# The weighted of the governing parties in the coalition
+# Only CSV
+erdda_lux_new_long[17, 14] <- erdda_lux_new_long[17, 13] / coalition_seats_junckerIV
+# Only LSAP
+erdda_lux_new_long[18, 14] <- erdda_lux_new_long[18, 13] / coalition_seats_junckerIV
+
+# Coalition parties weights Bettel I
+# Percentage of parliament seats that support the gov
+coalition_seats_bettelI <- sum(erdda_lux_new_long[24, 13], erdda_lux_new_long[25, 13],
+                               erdda_lux_new_long[26, 13])
+
+# The weighted of the governing parties in the coalition
+# Only LSAP
+erdda_lux_new_long[24, 14] <- erdda_lux_new_long[24, 13] / coalition_seats_bettelI
+# Only DP
+erdda_lux_new_long[25, 14] <- erdda_lux_new_long[25, 13] / coalition_seats_bettelI
+# Only Greng
+erdda_lux_new_long[26, 14] <- erdda_lux_new_long[26, 13] / coalition_seats_bettelI
+
+# Coalition parties weights Bettel II
+# Percentage of parliament seats that support the gov
+coalition_seats_bettelII <- sum(erdda_lux_new_long[30, 13], erdda_lux_new_long[31, 13],
+                                erdda_lux_new_long[32, 13])
+
+# The weighted of the governing parties in the coalition
+# Only LSAP
+erdda_lux_new_long[30, 14] <- erdda_lux_new_long[30, 13] / coalition_seats_bettelII
+# Only DP
+erdda_lux_new_long[31, 14] <- erdda_lux_new_long[31, 13] / coalition_seats_bettelII
+# Only Greng
+erdda_lux_new_long[32, 14] <- erdda_lux_new_long[32, 13] / coalition_seats_bettelII
+
+#----
+# Section: ideologies
+#-----
+# Juncker IV
+cabinet_junckerIV <- erdda_lux_new_long %>%
+  filter(cab_name == 'Juncker IV' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_junckerIV <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 38 & year == 2014 & (party == 'CSV' | party == 'LSAP'))
+
+ches %>%
+  filter(country == 21 & year == 2019) %>%
+  select(party) %>%
+  unique()
+
+## Adding to the cabinet dataframe
+cabinet_junckerIV <- cabinet_junckerIV %>%
+  left_join(ches_junckerIV, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Bettel I
+cabinet_bettelI <- erdda_lux_new_long %>%
+  filter(cab_name == 'Bettel I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_bettelI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 38 & year == 2014 & (party == 'DP' | party == 'LSAP' |
+                                           party == 'GRENG'  ))
+# Fixinf GRENG name
+ches_bettelI[1,2] <- 'Greng'
+
+ches %>%
+  filter(country == 38 & year == 2014) %>%
+  select(party) %>%
+  unique()
+
+## Adding to the cabinet dataframe
+cabinet_bettelI <- cabinet_bettelI %>%
+  left_join(ches_bettelI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Bettel II
+cabinet_bettelII <- erdda_lux_new_long %>%
+  filter(cab_name == 'Bettel II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_bettelII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 38 & year == 2019 & (party == 'DP' | party == 'LSAP' |
+                                           party == 'Greng'  ))
+
+
+ches %>%
+  filter(country == 38 & year == 2019) %>%
+  select(party) %>%
+  unique()
+
+## Adding to the cabinet dataframe
+cabinet_bettelII <- cabinet_bettelII %>%
+  left_join(ches_bettelII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Juncker IV 
+round(sum(cabinet_junckerIV$weighted_galtan), 2)
+round(sum(cabinet_junckerIV$weighted_lrecon), 2)
+round(sum(cabinet_junckerIV$weighted_eu_position), 2)
+
+# Bettel I 
+round(sum(cabinet_bettelI$weighted_galtan), 2)
+round(sum(cabinet_bettelI$weighted_lrecon), 2)
+round(sum(cabinet_bettelI$weighted_eu_position), 2)
+
+# Bettel II 
+round(sum(cabinet_bettelII$weighted_galtan), 2)
+round(sum(cabinet_bettelII$weighted_lrecon), 2)
+round(sum(cabinet_bettelII$weighted_eu_position), 2)
