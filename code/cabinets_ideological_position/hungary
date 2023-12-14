@@ -1,0 +1,430 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only Hungary
+erdda_hun <- erdda %>%
+  filter(country_id == "Hungary")
+
+
+# Selecting columns of interest
+erdda_hun <- erdda_hun %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_hun <- erdda_hun %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "KDNP",
+    . == "seats_party2" ~ "JOBBIK",
+    . == "seats_party3" ~ "FKGP",
+    . == "seats_party4" ~ "Kisgazdak",
+    . == "seats_party5" ~ "EKGP",
+    . == "seats_party6" ~ "DK",
+    . == "seats_party7" ~ "LMP",
+    . == "seats_party8" ~ "Fidesz",
+    . == "seats_party9" ~ "MIEP",
+    . == "seats_party10" ~ "MSzP",
+    . == "seats_party11" ~ "MDF",
+    . == "seats_party12" ~ "Somogyert",
+    . == "seats_party13" ~ "SzDSz",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest (1999-2018)
+erdda_hun <- erdda_hun[c(5:12), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_hun_long <- erdda_hun %>%
+  pivot_longer(cols = KDNP:seats_party14, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_hun_long <- erdda_hun_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Orban
+# Percentage of parliament seats that support the gov
+coalition_seats_orban <- sum(erdda_hun_long[2, 14], erdda_hun_long[3, 14],
+                             erdda_hun_long[4, 14], erdda_hun_long[6, 14])
+
+# The weighted of the governing parties in the coalition
+# Only FKGP
+erdda_hun_long[2, 15] <- erdda_hun_long[2, 14] / coalition_seats_orban
+# Only Fidesz
+erdda_hun_long[3, 15] <- erdda_hun_long[3, 14] / coalition_seats_orban
+# Only MIEP
+erdda_hun_long[4, 15] <- erdda_hun_long[4, 14] / coalition_seats_orban
+# Only MDF
+erdda_hun_long[6, 15] <- erdda_hun_long[6, 14] / coalition_seats_orban
+
+# Coalition parties weights Medgyessy
+# Percentage of parliament seats that support the gov
+coalition_seats_medgyessy <- sum(erdda_hun_long[12, 14], erdda_hun_long[14, 14])
+
+# The weighted of the governing parties in the coalition
+# Only MSzP
+erdda_hun_long[12, 15] <- erdda_hun_long[12, 14] / coalition_seats_medgyessy
+# Only SzDSz
+erdda_hun_long[14, 15] <- erdda_hun_long[14, 14] / coalition_seats_medgyessy
+
+# Coalition parties weights Gyurcsany I
+# Percentage of parliament seats that support the gov
+coalition_seats_gyurcsanyI <- sum(erdda_hun_long[16, 14], erdda_hun_long[18, 14])
+
+# The weighted of the governing parties in the coalition
+# Only MSzP
+erdda_hun_long[16, 15] <- erdda_hun_long[16, 14] / coalition_seats_gyurcsanyI
+# Only SzDSz
+erdda_hun_long[18, 15] <- erdda_hun_long[18, 14] / coalition_seats_gyurcsanyI
+
+# Coalition parties weights Gyurcsany II
+# Percentage of parliament seats that support the gov
+coalition_seats_gyurcsanyII <- sum(erdda_hun_long[25, 14], erdda_hun_long[27, 14])
+
+# The weighted of the governing parties in the coalition
+# Only MSzP
+erdda_hun_long[25, 15] <- erdda_hun_long[25, 14] / coalition_seats_gyurcsanyII
+# Only SzDSz
+erdda_hun_long[27, 15] <- erdda_hun_long[27, 14] / coalition_seats_gyurcsanyII
+
+# Coalition parties weights Gyurcsany III
+# Percentage of parliament seats that support the gov
+coalition_seats_gyurcsanyIII <- sum(erdda_hun_long[31, 14],
+                                    erdda_hun_long[34, 14])
+
+# The weighted of the governing parties in the coalition
+# Only MSzP
+erdda_hun_long[31, 15] <- erdda_hun_long[31, 14] / coalition_seats_gyurcsanyIII
+# Only SzDSz
+erdda_hun_long[34, 15] <- erdda_hun_long[34, 14] / coalition_seats_gyurcsanyIII
+
+# Coalition parties weights Bajnai
+# Percentage of parliament seats that support the gov
+coalition_seats_bajnai <- sum(erdda_hun_long[38, 14], erdda_hun_long[41, 14])
+
+# The weighted of the governing parties in the coalition
+# Only MSzP
+erdda_hun_long[38, 15] <- erdda_hun_long[38, 14] / coalition_seats_bajnai
+# Only SzDSz
+erdda_hun_long[41, 15] <- erdda_hun_long[41, 14] / coalition_seats_bajnai
+
+# Coalition parties weights Orban
+# Percentage of parliament seats that support the gov
+coalition_seats_orbanII <- sum(erdda_hun_long[47, 14])
+
+# The weighted of the governing parties in the coalition
+# Only Fidesz
+erdda_hun_long[47, 15] <- erdda_hun_long[47, 14] / coalition_seats_orbanII
+
+# Coalition parties weights Orban
+# Percentage of parliament seats that support the gov
+coalition_seats_orbanIII <- sum(erdda_hun_long[58, 14])
+
+# The weighted of the governing parties in the coalition
+# Only Fidesz
+erdda_hun_long[58, 15] <- erdda_hun_long[58, 14] / coalition_seats_orbanIII
+
+#----
+# Section: ideologies
+#-----
+# Orban
+cabinet_orbanI <- erdda_hun_long %>%
+  filter(cab_name == 'Orbán I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_orbanI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 23 & year == 2002 & (party == 'Fidesz-M' | party == 'MDF' | 
+                                         party == 'MIEP'))
+
+# Fixing the name of the Fidesz
+ches_orbanI[1,2] <- 'Fidesz'
+
+# Removing the FKGP party
+cabinet_orbanI <- cabinet_orbanI[c(2:4), ]
+
+## Adding to the cabinet dataframe
+cabinet_orbanI <- cabinet_orbanI %>%
+  left_join(ches_orbanI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Medgyessy
+cabinet_medgyessy <- erdda_hun_long %>%
+  filter(cab_name == 'Medgyessy' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_medgyessy <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 23 & year == 2002 & (party == 'MSzP' | party == 'SzDSz'))
+
+## Adding to the cabinet dataframe
+cabinet_medgyessy <- cabinet_medgyessy %>%
+  left_join(ches_medgyessy, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Gyurcsany I
+cabinet_gyurcsany <- erdda_hun_long %>%
+  filter(cab_name == 'Gyurcsány I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_gyurcsany <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 23 & year == 2006 & (party == 'MSzP' | party == 'SzDSz'))
+
+## Adding to the cabinet dataframe
+cabinet_gyurcsany <- cabinet_gyurcsany %>%
+  left_join(ches_gyurcsany, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Gyurcsany I
+cabinet_gyurcsanyI <- erdda_hun_long %>%
+  filter(cab_name == 'Gyurcsány I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_gyurcsanyI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 23 & year == 2006 & (party == 'MSzP' | party == 'SzDSz'))
+
+## Adding to the cabinet dataframe
+cabinet_gyurcsanyI <- cabinet_gyurcsanyI %>%
+  left_join(ches_gyurcsanyI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Gyurcsany II
+cabinet_gyurcsanyII <- erdda_hun_long %>%
+  filter(cab_name == 'Gyurcsány II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_gyurcsanyII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 23 & year == 2006 & (party == 'MSzP' | party == 'SzDSz'))
+
+## Adding to the cabinet dataframe
+cabinet_gyurcsanyII <- cabinet_gyurcsanyII %>%
+  left_join(ches_gyurcsanyII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Gyurcsany III
+cabinet_gyurcsanyIII <- erdda_hun_long %>%
+  filter(cab_name == 'Gyurcsány III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_gyurcsanyIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 23 & year == 2006 & (party == 'MSzP' | party == 'SzDSz'))
+
+## Adding to the cabinet dataframe
+cabinet_gyurcsanyIII <- cabinet_gyurcsanyIII %>%
+  left_join(ches_gyurcsanyIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Bajnai
+cabinet_bajnai <- erdda_hun_long %>%
+  filter(cab_name == 'Bajnai' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_bajnai <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 23 & year == 2010 & (party == 'MSZP' | party == 'SZDSZ'))
+
+# Fixing the name of the MSzP and SzDSz
+ches_bajnai[2,2] <- 'MSzP'
+ches_bajnai[1,2] <- 'SzDSz'
+
+## Adding to the cabinet dataframe
+cabinet_bajnai <- cabinet_bajnai %>%
+  left_join(ches_bajnai, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Orban II
+cabinet_orbanII <- erdda_hun_long %>%
+  filter(cab_name == 'Orbán II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_orbanII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 23 & year == 2010 & (party == 'Fidesz-M'))
+
+# Fixing the name of the Fidesz
+ches_orbanII[1,2] <- 'Fidesz'
+
+## Adding to the cabinet dataframe
+cabinet_orbanII <- cabinet_orbanII %>%
+  left_join(ches_orbanII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Orban III
+cabinet_orbanIII <- erdda_hun_long %>%
+  filter(cab_name == 'Orbán III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_orbanIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 23 & year == 2014 & (party == 'Fidesz'))
+
+## Adding to the cabinet dataframe
+cabinet_orbanIII <- cabinet_orbanIII %>%
+  left_join(ches_orbanIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Orban I
+round(sum(cabinet_orbanI$weighted_galtan), 2)
+round(sum(cabinet_orbanI$weighted_lrecon), 2)
+round(sum(cabinet_orbanI$weighted_eu_position), 2)
+
+# Medgyessy 
+round(sum(cabinet_medgyessy$weighted_galtan), 2)
+round(sum(cabinet_medgyessy$weighted_lrecon), 2)
+round(sum(cabinet_medgyessy$weighted_eu_position), 2)
+
+# Gyurcsany I 
+round(sum(cabinet_gyurcsanyI$weighted_galtan), 2)
+round(sum(cabinet_gyurcsanyI$weighted_lrecon), 2)
+round(sum(cabinet_gyurcsanyI$weighted_eu_position), 2)
+
+# Gyurcsany II 
+round(sum(cabinet_gyurcsanyII$weighted_galtan), 2)
+round(sum(cabinet_gyurcsanyII$weighted_lrecon), 2)
+round(sum(cabinet_gyurcsanyII$weighted_eu_position), 2)
+
+# Gyurcsany III 
+round(sum(cabinet_gyurcsanyIII$weighted_galtan), 2)
+round(sum(cabinet_gyurcsanyIII$weighted_lrecon), 2)
+round(sum(cabinet_gyurcsanyIII$weighted_eu_position), 2)
+
+# Bajnai  
+round(sum(cabinet_bajnai$weighted_galtan), 2)
+round(sum(cabinet_bajnai$weighted_lrecon), 2)
+round(sum(cabinet_bajnai$weighted_eu_position), 2)
+
+# Orban II  
+round(sum(cabinet_orbanII$weighted_galtan), 2)
+round(sum(cabinet_orbanII$weighted_lrecon), 2)
+round(sum(cabinet_orbanII$weighted_eu_position), 2)
+
+# Orban III  
+round(sum(cabinet_orbanIII$weighted_galtan), 2)
+round(sum(cabinet_orbanIII$weighted_lrecon), 2)
+round(sum(cabinet_orbanIII$weighted_eu_position), 2)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Croatia
+erdda_hun_new <- erdda_new %>%
+  filter(country_name == "Hungary")
+
+# Selecting columns of interest
+erdda_hun_new <- erdda_hun_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_hun_new <- erdda_hun_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "KDNP",
+    . == "seats_party2" ~ "JOBBIK",
+    . == "seats_party3" ~ "FKGP",
+    . == "seats_party4" ~ "Kisgazdak",
+    . == "seats_party5" ~ "EKGP",
+    . == "seats_party6" ~ "DK",
+    . == "seats_party7" ~ "LMP",
+    . == "seats_party8" ~ "Fidesz",
+    . == "seats_party9" ~ "MIEP",
+    . == "seats_party10" ~ "MSzP",
+    . == "seats_party11" ~ "MDF",
+    . == "seats_party12" ~ "Somogyert",
+    . == "seats_party13" ~ "SzDSz",
+    . == "seats_party14" ~ "PM",
+    . == "seats_party15" ~ "M",
+    . == "seats_party16" ~ "MHM",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest 
+erdda_hun_new <- erdda_hun_new[c(12:13), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_hun_new_long <- erdda_hun_new %>%
+  pivot_longer(cols = KDNP:MHM, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_hun_new_long <- erdda_hun_new_long %>%
+  filter(!is.na(party_seats))
+
+# Fixing name Orban III and IV cabinets
+erdda_hun_new_long[c(1:10), 2] <- 'Orban III'
+erdda_hun_new_long[c(11:19), 2] <- 'Orban IV'
+
+# Section: cabinet weights
+#-----
+
+# Coalition parties weights Orban IV 
+# Percentage of parliament seats that support the gov
+coalition_seats_orbanIV <- sum(erdda_hun_new_long[11, 14], erdda_hun_new_long[16, 14])
+
+# The weighted of the governing parties in the coalition
+# Only KDNP
+erdda_hun_new_long[11, 15] <- erdda_hun_new_long[11, 14] / coalition_seats_orbanIV
+# Only Fidesz
+erdda_hun_new_long[16, 15] <- erdda_hun_new_long[16, 14] / coalition_seats_orbanIV
+
+## Getting ideology from ches
+ches_orbanIV <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 23 & year == 2019 & (party == 'Fidesz-KDNP'))
