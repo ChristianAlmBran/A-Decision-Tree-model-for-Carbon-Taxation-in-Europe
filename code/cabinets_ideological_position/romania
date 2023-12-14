@@ -1,0 +1,700 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only Denamark
+erdda_rom <- erdda %>%
+  filter(country_id == "Romania")
+
+# Selecting columns of interest
+erdda_rom <- erdda_rom %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_rom <- erdda_rom %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "PSM",
+    . == "seats_party2" ~ "PPDD",
+    . == "seats_party3" ~ "PRM",
+    . == "seats_party4" ~ "PSrDR",
+    . == "seats_party5" ~ "FSN",
+    . == "seats_party6" ~ "PDAR",
+    . == "seats_party7" ~ "PSD",
+    . == "seats_party8" ~ "UNPR",
+    . == "seats_party9" ~ "PSDR",
+    . == "seats_party10" ~ "PUNR",
+    . == "seats_party11" ~ "MER",
+    . == "seats_party12" ~ "PER",
+    . == "seats_party13" ~ "PC",
+    . == "seats_party14" ~ "PNLCD",
+    . == "seats_party15" ~ "PDL",
+    . == "seats_party16" ~ "PNTCD",
+    . == "seats_party17" ~ "UDMR",
+    . == "seats_party18" ~ "PAC",
+    . == "seats_party19" ~ "PNL",
+    . == "seats_party20" ~ "PL93",
+    . == "seats_party21" ~ "UFD",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest (1999-2014)
+erdda_rom <- erdda_rom[c(10:24), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_rom_long <- erdda_rom %>%
+  pivot_longer(cols = PSM:seats_party22, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_rom_long <- erdda_rom_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Vasile II
+# Percentage of parliament seats that support the gov
+coalition_seats_vasileII <- sum(erdda_rom_long[3, 19], erdda_rom_long[5, 19],
+                                erdda_rom_long[7, 19], erdda_rom_long[8, 19],
+                                erdda_rom_long[9, 19], erdda_rom_long[10, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSDR
+erdda_rom_long[3, 20] <- erdda_rom_long[3, 19] / coalition_seats_vasileII
+# Only PER
+erdda_rom_long[5, 20] <- erdda_rom_long[5, 19] / coalition_seats_vasileII
+# Only PDL
+erdda_rom_long[7, 20] <- erdda_rom_long[7, 19] / coalition_seats_vasileII
+# Only PNTCD
+erdda_rom_long[8, 20] <- erdda_rom_long[8, 19] / coalition_seats_vasileII
+# Only UDMR
+erdda_rom_long[9, 20] <- erdda_rom_long[9, 19] / coalition_seats_vasileII
+# Only PNL
+erdda_rom_long[10, 20] <- erdda_rom_long[10, 19] / coalition_seats_vasileII
+
+# Coalition parties weights Isarescu I
+# Percentage of parliament seats that support the gov
+coalition_seats_isarescuI <- sum(erdda_rom_long[15, 19], erdda_rom_long[17, 19],
+                                erdda_rom_long[19, 19], erdda_rom_long[20, 19],
+                                erdda_rom_long[21, 19], erdda_rom_long[22, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSDR
+erdda_rom_long[15, 20] <- erdda_rom_long[15, 19] / coalition_seats_isarescuI
+# Only PER
+erdda_rom_long[17, 20] <- erdda_rom_long[17, 19] / coalition_seats_isarescuI
+# Only PDL
+erdda_rom_long[19, 20] <- erdda_rom_long[19, 19] / coalition_seats_isarescuI
+# Only PNTCD
+erdda_rom_long[20, 20] <- erdda_rom_long[20, 19] / coalition_seats_isarescuI
+# Only UDMR
+erdda_rom_long[21, 20] <- erdda_rom_long[21, 19] / coalition_seats_isarescuI
+# Only PNL
+erdda_rom_long[22, 20] <- erdda_rom_long[22, 19] / coalition_seats_isarescuI
+
+# Coalition parties weights Nastase I
+# Percentage of parliament seats that support the gov
+coalition_seats_nastaseI <- sum(erdda_rom_long[39, 19], erdda_rom_long[47, 19],
+                                 erdda_rom_long[43, 19], erdda_rom_long[46, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_rom_long[39, 20] <- erdda_rom_long[39, 19] / coalition_seats_nastaseI
+# Only PC
+erdda_rom_long[43, 20] <- erdda_rom_long[43, 19] / coalition_seats_nastaseI
+# Only UDMR
+erdda_rom_long[46, 20] <- erdda_rom_long[46, 19] / coalition_seats_nastaseI
+# Only PNL
+erdda_rom_long[47, 20] <- erdda_rom_long[47, 19] / coalition_seats_nastaseI
+
+# Coalition parties weights Nastase II
+# Percentage of parliament seats that support the gov
+coalition_seats_nastaseII <- sum(erdda_rom_long[51, 19], erdda_rom_long[55, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_rom_long[51, 20] <- erdda_rom_long[51, 19] / coalition_seats_nastaseII
+# Only UDMR
+erdda_rom_long[55, 20] <- erdda_rom_long[55, 19] / coalition_seats_nastaseII
+
+# Coalition parties weights Popescu-Tariceanu I
+# Percentage of parliament seats that support the gov
+coalition_seats_popescuI <- sum(erdda_rom_long[62, 19], erdda_rom_long[63, 19],
+                                erdda_rom_long[65, 19], erdda_rom_long[66, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PC
+erdda_rom_long[62, 20] <- erdda_rom_long[62, 19] / coalition_seats_popescuI
+# Only PDL
+erdda_rom_long[63, 20] <- erdda_rom_long[63, 19] / coalition_seats_popescuI
+# Only UDMR
+erdda_rom_long[65, 20] <- erdda_rom_long[65, 19] / coalition_seats_popescuI
+# Only PNL
+erdda_rom_long[66, 20] <- erdda_rom_long[66, 19] / coalition_seats_popescuI
+
+# Coalition parties weights Popescu-Tariceanu III
+# Percentage of parliament seats that support the gov
+coalition_seats_popescuIII <- sum(erdda_rom_long[76, 19], erdda_rom_long[79, 19],
+                                  erdda_rom_long[80, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_rom_long[76, 20] <- erdda_rom_long[76, 19] / coalition_seats_popescuIII
+# Only UDMR
+erdda_rom_long[79, 20] <- erdda_rom_long[79, 19] / coalition_seats_popescuIII
+# Only PNL
+erdda_rom_long[80, 20] <- erdda_rom_long[80, 19] / coalition_seats_popescuIII
+
+# Coalition parties weights Boc I
+# Percentage of parliament seats that support the gov
+coalition_seats_bocI <- sum(erdda_rom_long[83, 19], erdda_rom_long[86, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_rom_long[83, 20] <- erdda_rom_long[83, 19] / coalition_seats_bocI
+# Only PDL
+erdda_rom_long[86, 20] <- erdda_rom_long[86, 19] / coalition_seats_bocI
+
+# Coalition parties weights Boc III
+# Percentage of parliament seats that support the gov
+coalition_seats_bocIII <- sum(erdda_rom_long[98, 19], erdda_rom_long[100, 19],
+                              erdda_rom_long[101, 19])
+
+# The weighted of the governing parties in the coalition
+# Only UNPR
+erdda_rom_long[98, 20] <- erdda_rom_long[98, 19] / coalition_seats_bocIII
+# Only PDL
+erdda_rom_long[100, 20] <- erdda_rom_long[100, 19] / coalition_seats_bocIII
+# Only UDMR
+erdda_rom_long[101, 20] <- erdda_rom_long[101, 19] / coalition_seats_bocIII
+
+# Coalition parties weights Ponta I
+# Percentage of parliament seats that support the gov
+coalition_seats_pontaI <- sum(erdda_rom_long[111, 19], erdda_rom_long[113, 19],
+                              erdda_rom_long[116, 19], erdda_rom_long[112, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_rom_long[111, 20] <- erdda_rom_long[111, 19] / coalition_seats_pontaI
+# Only UNPR
+erdda_rom_long[112, 20] <- erdda_rom_long[112, 19] / coalition_seats_pontaI
+# Only PC
+erdda_rom_long[113, 20] <- erdda_rom_long[113, 19] / coalition_seats_pontaI
+# Only PNL
+erdda_rom_long[116, 20] <- erdda_rom_long[116, 19] / coalition_seats_pontaI
+
+# Coalition parties weights Ponta II
+# Percentage of parliament seats that support the gov
+coalition_seats_pontaII <- sum(erdda_rom_long[121, 19], erdda_rom_long[120, 19],
+                              erdda_rom_long[123, 19], erdda_rom_long[127, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_rom_long[120, 20] <- erdda_rom_long[120, 19] / coalition_seats_pontaII
+# Only UNPR
+erdda_rom_long[121, 20] <- erdda_rom_long[121, 19] / coalition_seats_pontaII
+# Only PC
+erdda_rom_long[123, 20] <- erdda_rom_long[123, 19] / coalition_seats_pontaII
+# Only PNL
+erdda_rom_long[127, 20] <- erdda_rom_long[127, 19] / coalition_seats_pontaII
+
+# Coalition parties weights Ponta III
+# Percentage of parliament seats that support the gov
+coalition_seats_pontaIII <- sum(erdda_rom_long[130, 19], erdda_rom_long[131, 19],
+                               erdda_rom_long[132, 19], erdda_rom_long[135, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_rom_long[130, 20] <- erdda_rom_long[130, 19] / coalition_seats_pontaIII
+# Only UNPR
+erdda_rom_long[131, 20] <- erdda_rom_long[131, 19] / coalition_seats_pontaIII
+# Only PC
+erdda_rom_long[132, 20] <- erdda_rom_long[132, 19] / coalition_seats_pontaIII
+# Only PNL
+erdda_rom_long[135, 20] <- erdda_rom_long[135, 19] / coalition_seats_pontaIII
+
+#----
+# Section: ideologies
+#-----
+# Nastase II
+cabinet_nastaseII <- erdda_rom_long %>%
+  filter(cab_name == 'Nastase II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_nastaseII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2006 & (party == 'PSD' | party == 'UDMR'))
+
+ches %>%
+  filter(country == 27 & year == 2014) %>%
+  select(party) %>%
+  unique()
+
+
+## Adding to the cabinet dataframe
+cabinet_nastaseII <- cabinet_nastaseII %>%
+  left_join(ches_nastaseII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Popescu-Tariceanu I
+cabinet_popescuI <- erdda_rom_long %>%
+  filter(cab_name == 'Popescu-Tariceanu I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_popescuI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2006 & (party == 'PNL' | party == 'PDL' |
+                                         party == 'UDMR' | party == 'PC'))
+
+
+## Adding to the cabinet dataframe
+cabinet_popescuI <- cabinet_popescuI %>%
+  left_join(ches_popescuI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Popescu-Tariceanu II
+cabinet_popescuIII <- erdda_rom_long %>%
+  filter(cab_name == 'Popescu-Tariceanu III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_popescuIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2006 & (party == 'PNL' | party == 'PSD' |
+                                         party == 'UDMR'))
+
+
+## Adding to the cabinet dataframe
+cabinet_popescuIII <- cabinet_popescuIII %>%
+  left_join(ches_popescuIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Boc I
+cabinet_bocI <- erdda_rom_long %>%
+  filter(cab_name == 'Boc I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_bocI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2010 & (party == 'PDL' | party == 'PSD'))
+
+
+## Adding to the cabinet dataframe
+cabinet_bocI <- cabinet_bocI %>%
+  left_join(ches_bocI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Boc III
+cabinet_bocIII <- erdda_rom_long %>%
+  filter(cab_name == 'Boc III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_bocIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2014 & (party == 'PDL' | party == 'UNPR' | 
+                                         party == 'UDMR'))
+
+
+## Adding to the cabinet dataframe
+cabinet_bocIII <- cabinet_bocIII %>%
+  left_join(ches_bocIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Ponta I
+cabinet_pontaI <- erdda_rom_long %>%
+  filter(cab_name == 'Ponta I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_pontaI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2014 & (party == 'PSD' | party == 'PNL' | 
+                                         party == 'PC' | party == 'UNPR'))
+
+
+## Adding to the cabinet dataframe
+cabinet_pontaI <- cabinet_pontaI %>%
+  left_join(ches_pontaI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Ponta II
+cabinet_pontaII <- erdda_rom_long %>%
+  filter(cab_name == 'Ponta II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_pontaII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2014 & (party == 'PSD' | party == 'PNL' | 
+                                           party == 'PC' | party == 'UNPR'))
+
+
+## Adding to the cabinet dataframe
+cabinet_pontaII <- cabinet_pontaII %>%
+  left_join(ches_pontaII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Ponta III
+cabinet_pontaIII <- erdda_rom_long %>%
+  filter(cab_name == 'Ponta III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_pontaIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2014 & (party == 'PSD' | party == 'UDMR' | 
+                                           party == 'PC' | party == 'UNPR'))
+
+
+## Adding to the cabinet dataframe
+cabinet_pontaIII <- cabinet_pontaIII %>%
+  left_join(ches_pontaIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Nastase II
+round(sum(cabinet_nastaseII$weighted_galtan), 2)
+round(sum(cabinet_nastaseII$weighted_lrecon), 2)
+round(sum(cabinet_nastaseII$weighted_eu_position), 2)
+
+# Popescu-Tariceanu I
+round(sum(cabinet_popescuI$weighted_galtan), 2)
+round(sum(cabinet_popescuI$weighted_lrecon), 2)
+round(sum(cabinet_popescuI$weighted_eu_position), 2)
+
+# Popescu-Tariceanu III
+round(sum(cabinet_popescuIII$weighted_galtan), 2)
+round(sum(cabinet_popescuIII$weighted_lrecon), 2)
+round(sum(cabinet_popescuIII$weighted_eu_position), 2)
+
+# Boc I
+round(sum(cabinet_bocI$weighted_galtan), 2)
+round(sum(cabinet_bocI$weighted_lrecon), 2)
+round(sum(cabinet_bocI$weighted_eu_position), 2)
+
+# Boc III
+round(sum(cabinet_bocIII$weighted_galtan), 2)
+round(sum(cabinet_bocIII$weighted_lrecon), 2)
+round(sum(cabinet_bocIII$weighted_eu_position), 2)
+
+# Ponta I
+round(sum(cabinet_pontaI$weighted_galtan), 2)
+round(sum(cabinet_pontaI$weighted_lrecon), 2)
+round(sum(cabinet_pontaI$weighted_eu_position), 2)
+
+# Ponta II
+round(sum(cabinet_pontaII$weighted_galtan), 2)
+round(sum(cabinet_pontaII$weighted_lrecon), 2)
+round(sum(cabinet_pontaII$weighted_eu_position), 2)
+
+# Ponta III
+round(sum(cabinet_pontaIII$weighted_galtan), 2)
+round(sum(cabinet_pontaIII$weighted_lrecon), 2)
+round(sum(cabinet_pontaIII$weighted_eu_position), 2)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Croatia
+erdda_rom_new <- erdda_new %>%
+  filter(country_name == "Romania")
+
+# Selecting columns of interest
+erdda_rom_new <- erdda_rom_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_rom_new <- erdda_rom_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "SLP",
+    . == "seats_party2" ~ "PPDD",
+    . == "seats_party3" ~ "GRP",
+    . == "seats_party4" ~ "RStDP",
+    . == "seats_party5" ~ "FSN",
+    . == "seats_party6" ~ "PDAR",
+    . == "seats_party7" ~ "PSD",
+    . == "seats_party8" ~ "UNPR",
+    . == "seats_party9" ~ "PSDR",
+    . == "seats_party10" ~ "PUNR",
+    . == "seats_party11" ~ "MER",
+    . == "seats_party12" ~ "PER",
+    . == "seats_party13" ~ "PC",
+    . == "seats_party14" ~ "PNLCD",
+    . == "seats_party15" ~ "PDL",
+    . == "seats_party16" ~ "PNTCD",
+    . == "seats_party17" ~ "UDMR",
+    . == "seats_party18" ~ "PAC",
+    . == "seats_party19" ~ "PNL",
+    . == "seats_party20" ~ "PL93",
+    . == "seats_party21" ~ "UFD",
+    . == "seats_party22" ~ "PLR",
+    . == "seats_party23" ~ "ALDE",
+    . == "seats_party24" ~ "AUR",
+    . == "seats_party25" ~ "PMP",
+    . == "seats_party26" ~ "USR",
+    . == "seats_party27" ~ "PRO",
+    . == "seats_party28" ~ "PUSL",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest
+erdda_rom_new <- erdda_rom_new[c(26:36), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_rom_new_long <- erdda_rom_new %>%
+  pivot_longer(cols = SLP:PUSL, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_rom_new_long <- erdda_rom_new_long %>%
+  filter(!is.na(party_seats))
+
+erdda_rom_new_long[c(53:58), 2] <- "Citu I"
+erdda_rom_new_long[c(65:70), 2] <- "Ciuca"
+# Section: cabinet weights
+#-----
+# Coalition parties weights Ponta V
+# Percentage of parliament seats that support the gov
+coalition_seats_pontaV <- sum(erdda_rom_new_long[2, 19], erdda_rom_new_long[3, 19],
+                              erdda_rom_new_long[4, 19], erdda_rom_new_long[8, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_rom_new_long[2, 20] <- erdda_rom_new_long[2, 19] / coalition_seats_pontaV
+# Only UNPR
+erdda_rom_new_long[3, 20] <- erdda_rom_new_long[3, 19] / coalition_seats_pontaV
+# Only PC
+erdda_rom_new_long[4, 20] <- erdda_rom_new_long[4, 19] / coalition_seats_pontaV
+# Only PLR
+erdda_rom_new_long[8, 20] <- erdda_rom_new_long[8, 19] / coalition_seats_pontaV
+
+# Coalition parties weights Grindeanu
+# Percentage of parliament seats that support the gov
+coalition_seats_grideanu <- sum(erdda_rom_new_long[14, 19], erdda_rom_new_long[17, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_rom_new_long[14, 20] <- erdda_rom_new_long[14, 19] / coalition_seats_grideanu
+# Only ALDE
+erdda_rom_new_long[17, 20] <- erdda_rom_new_long[17, 19] / coalition_seats_grideanu
+
+# Coalition parties weights Dancila I
+# Percentage of parliament seats that support the gov
+coalition_seats_dancilaI <- sum(erdda_rom_new_long[26, 19], erdda_rom_new_long[29, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_rom_new_long[26, 20] <- erdda_rom_new_long[26, 19] / coalition_seats_dancilaI
+# Only ALDE
+erdda_rom_new_long[29, 20] <- erdda_rom_new_long[29, 19] / coalition_seats_dancilaI
+
+# Coalition parties weights Citu I
+# Percentage of parliament seats that support the gov
+coalition_seats_cituI <- sum(erdda_rom_new_long[54, 19], erdda_rom_new_long[55, 19],
+                             erdda_rom_new_long[57, 19])
+
+# The weighted of the governing parties in the coalition
+# Only UDMR
+erdda_rom_new_long[54, 20] <- erdda_rom_new_long[54, 19] / coalition_seats_cituI
+# Only PNL
+erdda_rom_new_long[55, 20] <- erdda_rom_new_long[55, 19] / coalition_seats_cituI
+# Only USR
+erdda_rom_new_long[57, 20] <- erdda_rom_new_long[57, 19] / coalition_seats_cituI
+
+# Coalition parties weights ciuca
+# Percentage of parliament seats that support the gov
+coalition_seats_ciuca <- sum(erdda_rom_new_long[65, 19], erdda_rom_new_long[66, 19],
+                             erdda_rom_new_long[67, 19])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_rom_new_long[65, 20] <- erdda_rom_new_long[65, 19] / coalition_seats_ciuca
+# Only UDMR
+erdda_rom_new_long[66, 20] <- erdda_rom_new_long[66, 19] / coalition_seats_ciuca
+# Only PNL
+erdda_rom_new_long[67, 20] <- erdda_rom_new_long[67, 19] / coalition_seats_ciuca
+#----
+# Section: ideologies
+#-----
+# Ponta V
+cabinet_pontaV <- erdda_rom_new_long %>%
+  filter(cab_name == 'Ponta V' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_pontaV <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2014 & (party == 'PSD' | party == 'UNPR' |
+                                         party == 'PC' | party == 'PLR'))
+
+ches %>%
+  filter(country == 27 & year == 2014) %>%
+  select(party) %>%
+  unique()
+
+## Adding to the cabinet dataframe
+cabinet_pontaV <- cabinet_pontaV %>%
+  left_join(ches_pontaV, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Grindeanu
+cabinet_grindeanu <- erdda_rom_new_long %>%
+  filter(cab_name == 'Grindeanu' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_grindeanu <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2019 & (party == 'PSD' | party == 'ALDE'))
+
+ches %>%
+  filter(country == 27 & year == 2019) %>%
+  select(party) %>%
+  unique()
+
+## Adding to the cabinet dataframe
+cabinet_grindeanu <- cabinet_grindeanu %>%
+  left_join(ches_grindeanu, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Dancila I
+cabinet_dancilaI <- erdda_rom_new_long %>%
+  filter(cab_name == 'Dancila I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_dancilaI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2019 & (party == 'PSD' | party == 'ALDE'))
+
+ches %>%
+  filter(country == 27 & year == 2019) %>%
+  select(party) %>%
+  unique()
+
+## Adding to the cabinet dataframe
+cabinet_dancilaI <- cabinet_dancilaI %>%
+  left_join(ches_dancilaI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Citu I
+cabinet_cituI <- erdda_rom_new_long %>%
+  filter(cab_name == 'Citu I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_cituI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2019 & (party == 'PNL' | party == 'USR' |
+                                           party == 'UDMR'))
+
+## Adding to the cabinet dataframe
+cabinet_cituI <- cabinet_cituI %>%
+  left_join(ches_cituI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Ciuca
+cabinet_ciuca <- erdda_rom_new_long %>%
+  filter(cab_name == 'Ciuca' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_ciuca <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2019 & (party == 'PNL' | party == 'PSD' |
+                                           party == 'UDMR'))
+
+## Adding to the cabinet dataframe
+cabinet_ciuca <- cabinet_ciuca %>%
+  left_join(ches_ciuca, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Ponta V
+round(sum(cabinet_pontaV$weighted_galtan), 2)
+round(sum(cabinet_pontaV$weighted_lrecon), 2)
+round(sum(cabinet_pontaV$weighted_eu_position), 2)
+
+# Grindeanu
+round(sum(cabinet_grindeanu$weighted_galtan), 2)
+round(sum(cabinet_grindeanu$weighted_lrecon), 2)
+round(sum(cabinet_grindeanu$weighted_eu_position), 2)
+
+# Dancila I
+round(sum(cabinet_dancilaI$weighted_galtan), 2)
+round(sum(cabinet_dancilaI$weighted_lrecon), 2)
+round(sum(cabinet_dancilaI$weighted_eu_position), 2)
+
+# Citu I
+round(sum(cabinet_cituI$weighted_galtan), 2)
+round(sum(cabinet_cituI$weighted_lrecon), 2)
+round(sum(cabinet_cituI$weighted_eu_position), 2)
+
+# Ciuca
+round(sum(cabinet_ciuca$weighted_galtan), 2)
+round(sum(cabinet_ciuca$weighted_lrecon), 2)
+round(sum(cabinet_ciuca$weighted_eu_position), 2)
+
+## Getting ideology from ches
+ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 27 & year == 2019 & (party == 'PNL'))
