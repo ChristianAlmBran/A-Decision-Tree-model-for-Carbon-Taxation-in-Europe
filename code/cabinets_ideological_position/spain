@@ -1,0 +1,423 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only Spain
+erdda_spa <- erdda %>%
+  filter(country_id == "Spain")
+
+# Selecting columns of interest
+erdda_spa <- erdda_spa %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_spa <- erdda_spa %>%
+  rename(HB = seats_party1, Amaiur = seats_party2, `P's` = seats_party3, 
+         CPV = seats_party4, IU = seats_party5, BNG = seats_party6, 
+         ERC = seats_party7, PSOE = seats_party8, PSP = seats_party9, 
+         PSA = seats_party10, PNV = seats_party11, CC = seats_party12, 
+         CiU = seats_party13, UPyD = seats_party14, `C's` = seats_party15, 
+         CDS = seats_party16, UCD = seats_party17, PDP = seats_party18, 
+         PP = seats_party19, X = seats_party21)
+
+# Filtering cabinets of interest (1999-2021)
+erdda_spa <- erdda_spa[c(8:15), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_spa_long <- erdda_spa %>%
+  pivot_longer(cols = HB:X, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Aznar I 
+# Percentage of parliament seats that support the gov
+coalition_seats_aznarI <- sum(erdda_spa_long[19, 14], erdda_spa_long[13, 14],
+                              erdda_spa_long[11, 14], erdda_spa_long[12, 14])
+
+# The weighted of the governing parties in the coalition
+# Only PNV
+erdda_spa_long[11, 15] <- erdda_spa_long[11, 14] / coalition_seats_aznarI
+# Only CC
+erdda_spa_long[12, 15] <- erdda_spa_long[12, 14] / coalition_seats_aznarI
+# Only CIU
+erdda_spa_long[13, 15] <- erdda_spa_long[13, 14] / coalition_seats_aznarI
+# Only PP
+erdda_spa_long[19, 15] <- erdda_spa_long[19, 14] / coalition_seats_aznarI
+
+# Coalition parties weights Aznar II 
+# Percentage of parliament seats that support the gov
+coalition_seats_aznarII <- sum(erdda_spa_long[32, 14], erdda_spa_long[39, 14])
+
+# The weighted of the governing parties in the coalition
+# Only CC
+erdda_spa_long[32, 15] <- erdda_spa_long[32, 14] / coalition_seats_aznarII
+# Only PP
+erdda_spa_long[39, 15] <- erdda_spa_long[39, 14] / coalition_seats_aznarII
+
+# Coalition parties weights Zapatero I 
+# Percentage of parliament seats that support the gov
+coalition_seats_zapateroI <- sum(erdda_spa_long[48, 14], erdda_spa_long[52, 14])
+
+# The weighted of the governing parties in the coalition
+# Only PSOE
+erdda_spa_long[48, 15] <- erdda_spa_long[48, 14] / coalition_seats_zapateroI
+# Only CC
+erdda_spa_long[52, 15] <- erdda_spa_long[52, 14] / coalition_seats_zapateroI
+
+# Coalition parties weights Zapatero II 
+# Percentage of parliament seats that support the gov
+coalition_seats_zapateroII <- sum(erdda_spa_long[68, 14])
+
+# The weighted of the governing parties in the coalition
+# Only PSOE
+erdda_spa_long[68, 15] <- erdda_spa_long[68, 14] / coalition_seats_zapateroII
+
+# Coalition parties weights Rajoy I 
+# Percentage of parliament seats that support the gov
+coalition_seats_rajoyI <- sum(erdda_spa_long[99, 14])
+
+# The weighted of the governing parties in the coalition
+# Only PP
+erdda_spa_long[99, 15] <- erdda_spa_long[99, 14] / coalition_seats_rajoyI
+
+# Coalition parties weights Rajoy II
+# Percentage of parliament seats that support the gov
+coalition_seats_rajoyII <- sum(erdda_spa_long[119, 14])
+
+# The weighted of the governing parties in the coalition
+# Only PP
+erdda_spa_long[119, 15] <- erdda_spa_long[119, 14] / coalition_seats_rajoyII
+
+# Coalition parties weights Rajoy III
+# Percentage of parliament seats that support the gov
+coalition_seats_rajoyIII <- sum(erdda_spa_long[139, 14], erdda_spa_long[135, 14],
+                                erdda_spa_long[132, 14])
+
+# The weighted of the governing parties in the coalition
+# Only PP
+erdda_spa_long[139, 15] <- erdda_spa_long[139, 14] / coalition_seats_rajoyIII
+# Only C'S
+erdda_spa_long[135, 15] <- erdda_spa_long[135, 14] / coalition_seats_rajoyIII
+# Only CC
+erdda_spa_long[132, 15] <- erdda_spa_long[132, 14] / coalition_seats_rajoyIII
+
+# Coalition parties weights Sanchez II
+# Percentage of parliament seats that support the gov
+coalition_seats_sanchezII <- sum(erdda_spa_long[148, 14])
+
+# The weighted of the governing parties in the coalition
+# Only PSOE
+erdda_spa_long[148, 15] <- erdda_spa_long[148, 14] / coalition_seats_sanchezII
+
+#----
+# Section: ideologies
+#-----
+# Aznar I
+cabinet_aznarI <- erdda_spa_long %>%
+  filter(cab_name == 'Aznar I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_aznarI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 5 & year == 1999 & (party == 'PP' | party == 'CiU' | 
+                                          party == 'PNV' | party == 'CC'))
+
+## Adding to the cabinet dataframe
+cabinet_aznarI <- cabinet_aznarI %>%
+  left_join(ches_aznarI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Aznar II
+cabinet_aznarII <- erdda_spa_long %>%
+  filter(cab_name == 'Aznar II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_aznarII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 5 & year == 2002 & (party == 'PP' | party == 'CC'))
+
+## Adding to the cabinet dataframe
+cabinet_aznarII <- cabinet_aznarII %>%
+  left_join(ches_aznarII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Zapatero I
+cabinet_zapateroI <- erdda_spa_long %>%
+  filter(cab_name == 'Zapatero I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_zapateroI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 5 & year == 2006 & (party == 'PSOE' | party == 'CC'))
+
+## Adding to the cabinet dataframe
+cabinet_zapateroI <- cabinet_zapateroI %>%
+  left_join(ches_zapateroI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Zapatero II
+cabinet_zapateroII <- erdda_spa_long %>%
+  filter(cab_name == 'Zapatero II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_zapateroII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 5 & year == 2010 & (party == 'PSOE'))
+
+## Adding to the cabinet dataframe
+cabinet_zapateroII <- cabinet_zapateroII %>%
+  left_join(ches_zapateroII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Rajoy I
+cabinet_rajoyI <- erdda_spa_long %>%
+  filter(cab_name == 'Rajoy I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_rajoyI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 5 & year == 2014 & (party == 'PP'))
+
+## Adding to the cabinet dataframe
+cabinet_rajoyI <- cabinet_rajoyI %>%
+  left_join(ches_rajoyI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Rajoy II
+cabinet_rajoyII <- erdda_spa_long %>%
+  filter(cab_name == 'Rajoy II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_rajoyII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 5 & year == 2014 & (party == 'PP'))
+
+## Adding to the cabinet dataframe
+cabinet_rajoyII <- cabinet_rajoyII %>%
+  left_join(ches_rajoyII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Rajoy III
+cabinet_rajoyIII <- erdda_spa_long %>%
+  filter(cab_name == 'Rajoy III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_rajoyIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 5 & year == 2019 & (party == 'PPP' | party == 'CC' |
+                                        party == 'Cs'))
+
+# Fixing name, PPP = PP AND Cs = Cs
+ches_rajoyIII[1, 2] <- 'PP'
+cabinet_rajoyIII[2, 13] <- 'Cs'
+
+## Adding to the cabinet dataframe
+cabinet_rajoyIII <- cabinet_rajoyIII %>%
+  left_join(ches_rajoyIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Sanchez I
+cabinet_sanchezI <- erdda_spa_long %>%
+  filter(cab_name == 'Sánchez I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_sanchezI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 5 & year == 2019 & (party == 'PSOE'))
+
+## Adding to the cabinet dataframe
+cabinet_sanchezI <- cabinet_sanchezI %>%
+  left_join(ches_sanchezI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Aznar I
+sum(cabinet_aznarI$weighted_galtan)
+sum(cabinet_aznarI$weighted_lrecon)
+sum(cabinet_aznarI$weighted_eu_position)
+
+# Aznar II
+sum(cabinet_aznarII$weighted_galtan)
+sum(cabinet_aznarII$weighted_lrecon)
+sum(cabinet_aznarII$weighted_eu_position)
+
+# Zapatero I
+sum(cabinet_zapateroI$weighted_galtan)
+sum(cabinet_zapateroI$weighted_lrecon)
+sum(cabinet_zapateroI$weighted_eu_position)
+
+# Zapatero II
+sum(cabinet_zapateroII$weighted_galtan)
+sum(cabinet_zapateroII$weighted_lrecon)
+sum(cabinet_zapateroII$weighted_eu_position)
+
+# Rajoy I
+sum(cabinet_rajoyI$weighted_galtan)
+sum(cabinet_rajoyI$weighted_lrecon)
+sum(cabinet_rajoyI$weighted_eu_position)
+
+# Rajoy II
+sum(cabinet_rajoyII$weighted_galtan)
+sum(cabinet_rajoyII$weighted_lrecon)
+sum(cabinet_rajoyII$weighted_eu_position)
+
+# Rajoy III
+sum(cabinet_rajoyIII$weighted_galtan)
+sum(cabinet_rajoyIII$weighted_lrecon)
+sum(cabinet_rajoyIII$weighted_eu_position)
+
+# Sanchez I
+sum(cabinet_sanchezI$weighted_galtan)
+sum(cabinet_sanchezI$weighted_lrecon)
+sum(cabinet_sanchezI$weighted_eu_position)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Croatia
+erdda_spa_new <- erdda_new %>%
+  filter(country_name == "Spain")
+
+# Selecting columns of interest
+erdda_spa_new <- erdda_spa_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_spa_new <- erdda_spa_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "HB",
+    . == "seats_party2" ~ "Amaiur",
+    . == "seats_party3" ~ "Podemos",
+    . == "seats_party4" ~ "CPV",
+    . == "seats_party5" ~ "IU",
+    . == "seats_party6" ~ "BNG",
+    . == "seats_party7" ~ "ERC",
+    . == "seats_party8" ~ "PSOE",
+    . == "seats_party9" ~ "PSP",
+    . == "seats_party10" ~ "PSA",
+    . == "seats_party11" ~ "PNV",
+    . == "seats_party12" ~ "CC",
+    . == "seats_party13" ~ "CIU",
+    . == "seats_party14" ~ "UPyD",
+    . == "seats_party15" ~ "C's",
+    . == "seats_party16" ~ "CDS",
+    . == "seats_party17" ~ "UCD",
+    . == "seats_party18" ~ "PDP",
+    . == "seats_party19" ~ "PP",
+    . == "seats_party20" ~ "Vox",
+    . == "seats_party21" ~ "Pais",
+    . == "seats_party22" ~ "EHBildu",
+    . == "seats_party23" ~ "CUP",
+    . == "seats_party24" ~ "NA+",
+    . == "seats_party25" ~ "PRC",
+    . == "seats_party26" ~ "TE",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest
+erdda_spa_new <- erdda_spa_new[c(16), ]
+
+# Fixing name 
+erdda_spa_new[1, 2] <- "Sanchez II"
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_spa_new_long <- erdda_spa_new %>%
+  pivot_longer(cols = HB:TE, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_spa_new_long <- erdda_spa_new_long %>%
+  filter(!is.na(party_seats))
+
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Sanchez II
+# Fixing n of pms from Podemos
+erdda_spa_new_long[1, 16] <- 35
+# Percentage of parliament seats that support the gov
+coalition_seats_sanchezII <- sum(erdda_spa_new_long[1, 16], erdda_spa_new_long[5, 16])
+
+# The weighted of the governing parties in the coalition
+# Only Podemos
+erdda_spa_new_long[1, 17] <- erdda_spa_new_long[1, 16] / coalition_seats_sanchezII
+# Only PSOE
+erdda_spa_new_long[5, 17] <- erdda_spa_new_long[5, 16] / coalition_seats_sanchezII
+
+#----
+# Section: ideologies
+#-----
+# Sanchez II
+cabinet_sanchezII <- erdda_spa_new_long %>%
+  filter(cab_name == 'Sanchez II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_sanchezII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 5 & year == 2019 & (party == 'PSOE' | party == 'Podemos'))
+
+## Adding to the cabinet dataframe
+cabinet_sanchezII <- cabinet_sanchezII %>%
+  left_join(ches_sanchezII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Sanchez II
+sum(cabinet_sanchezII$weighted_galtan)
+sum(cabinet_sanchezII$weighted_lrecon)
+sum(cabinet_sanchezII$weighted_eu_position)
