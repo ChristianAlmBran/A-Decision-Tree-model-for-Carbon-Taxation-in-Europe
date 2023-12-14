@@ -1,0 +1,604 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only Poland
+erdda_pol <- erdda %>%
+  filter(country_id == "Poland")
+
+# Selecting columns of interest
+erdda_pol <- erdda_pol %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_pol <- erdda_pol %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "SRP",
+    . == "seats_party2" ~ "LPR",
+    . == "seats_party3" ~ "UP",
+    . == "seats_party4" ~ "KPN",
+    . == "seats_party5" ~ "PiS",
+    . == "seats_party6" ~ "PSL",
+    . == "seats_party7" ~ "ROP",
+    . == "seats_party8" ~ "SDPL",
+    . == "seats_party9" ~ "SLD",
+    . == "seats_party10" ~ "AWS",
+    . == "seats_party11" ~ "S",
+    . == "seats_party12" ~ "PL",
+    . == "seats_party13" ~ "MNSO",
+    . == "seats_party14" ~ "ZChN",
+    . == "seats_party15" ~ "PC",
+    . == "seats_party16" ~ "BBWR",
+    . == "seats_party17" ~ "UD",
+    . == "seats_party18" ~ "RP",
+    . == "seats_party19" ~ "UW-PD",
+    . == "seats_party20" ~ "PChD",
+    . == "seats_party21" ~ "ChD",
+    . == "seats_party22" ~ "KLD",
+    . == "seats_party23" ~ "PPP",
+    . == "seats_party24" ~ "PO",
+    . == "seats_party25" ~ "UPR",
+    . == "seats_party26" ~ "Patria X",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest (1999-2014)
+erdda_pol <- erdda_pol[c(6:16), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_pol_long <- erdda_pol %>%
+  pivot_longer(cols = SRP:seats_party27, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_pol_long <- erdda_pol_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Buzer I
+# Percentage of parliament seats that support the gov
+coalition_seats_buzerI <- sum(erdda_pol_long[5, 20], erdda_pol_long[7, 20])
+
+# The weighted of the governing parties in the coalition
+# Only AWS
+erdda_pol_long[5, 21] <- erdda_pol_long[5, 20] / coalition_seats_buzerI
+# Only UW-PD
+erdda_pol_long[7, 21] <- erdda_pol_long[7, 20] / coalition_seats_buzerI
+
+# Coalition parties weights Buzer II
+# Percentage of parliament seats that support the gov
+coalition_seats_buzerII <- sum(erdda_pol_long[14, 20])
+
+# The weighted of the governing parties in the coalition
+# Only AWS
+erdda_pol_long[14, 21] <- erdda_pol_long[14, 20] / coalition_seats_buzerII
+
+# Coalition parties weights Miller I
+# Percentage of parliament seats that support the gov
+coalition_seats_millerI <- sum(erdda_pol_long[21, 20], erdda_pol_long[23, 20],
+                               erdda_pol_long[24, 20], erdda_pol_long[19, 20])
+
+# The weighted of the governing parties in the coalition
+# Only SRP
+erdda_pol_long[19, 21] <- erdda_pol_long[19, 20] / coalition_seats_millerI
+# Only UP
+erdda_pol_long[21, 21] <- erdda_pol_long[21, 20] / coalition_seats_millerI
+# Only PSL
+erdda_pol_long[23, 21] <- erdda_pol_long[23, 20] / coalition_seats_millerI
+# Only SLD
+erdda_pol_long[24, 21] <- erdda_pol_long[24, 20] / coalition_seats_millerI
+
+
+# Coalition parties weights Miller II
+# Percentage of parliament seats that support the gov
+coalition_seats_millerII <- sum(erdda_pol_long[32, 20], erdda_pol_long[35, 20])
+
+# The weighted of the governing parties in the coalition
+# Only UP
+erdda_pol_long[32, 21] <- erdda_pol_long[32, 20] / coalition_seats_millerII
+# Only SLD
+erdda_pol_long[35, 21] <- erdda_pol_long[35, 20] / coalition_seats_millerII
+
+# Coalition parties weights Belka
+# Percentage of parliament seats that support the gov
+coalition_seats_belka <- sum(erdda_pol_long[46, 20], erdda_pol_long[47, 20])
+
+# The weighted of the governing parties in the coalition
+# Only SDPL
+erdda_pol_long[46, 21] <- erdda_pol_long[46, 20] / coalition_seats_belka
+# Only SLD
+erdda_pol_long[47, 21] <- erdda_pol_long[47, 20] / coalition_seats_belka
+
+# Coalition parties weights Marcinkiewicz I
+# Percentage of parliament seats that support the gov
+coalition_seats_marcinkiewiczI <- sum(erdda_pol_long[53, 20], erdda_pol_long[54, 20],
+                                      erdda_pol_long[55, 20], erdda_pol_long[56, 20])
+
+# The weighted of the governing parties in the coalition
+# Only SRP
+erdda_pol_long[53, 21] <- erdda_pol_long[53, 20] / coalition_seats_marcinkiewiczI
+# Only LPR
+erdda_pol_long[54, 21] <- erdda_pol_long[54, 20] / coalition_seats_marcinkiewiczI
+# Only PiS
+erdda_pol_long[55, 21] <- erdda_pol_long[55, 20] / coalition_seats_marcinkiewiczI
+# Only PSL
+erdda_pol_long[56, 21] <- erdda_pol_long[56, 20] / coalition_seats_marcinkiewiczI
+
+# Coalition parties weights Kaczynski I
+# Percentage of parliament seats that support the gov
+coalition_seats_kaczynskiI <- sum(erdda_pol_long[75, 20], erdda_pol_long[76, 20],
+                                  erdda_pol_long[77, 20])
+
+# The weighted of the governing parties in the coalition
+# Only SRP
+erdda_pol_long[75, 21] <- erdda_pol_long[75, 20] / coalition_seats_kaczynskiI
+# Only LPR
+erdda_pol_long[76, 21] <- erdda_pol_long[76, 20] / coalition_seats_kaczynskiI
+# Only PiS
+erdda_pol_long[77, 21] <- erdda_pol_long[77, 20] / coalition_seats_kaczynskiI
+
+# Coalition parties weights Tusk I
+# Percentage of parliament seats that support the gov
+coalition_seats_tuskI <- sum(erdda_pol_long[100, 20], erdda_pol_long[105, 20])
+
+# The weighted of the governing parties in the coalition
+# Only PSL
+erdda_pol_long[100, 21] <- erdda_pol_long[100, 20] / coalition_seats_tuskI
+# Only PO
+erdda_pol_long[105, 21] <- erdda_pol_long[105, 20] / coalition_seats_tuskI
+
+# Coalition parties weights Tusk II
+# Percentage of parliament seats that support the gov
+coalition_seats_tuskII <- sum(erdda_pol_long[109, 20], erdda_pol_long[113, 20])
+
+# The weighted of the governing parties in the coalition
+# Only PSL
+erdda_pol_long[109, 21] <- erdda_pol_long[109, 20] / coalition_seats_tuskII
+# Only PO
+erdda_pol_long[113, 21] <- erdda_pol_long[113, 20] / coalition_seats_tuskII
+
+#----
+# Section: ideologies
+#-----
+# Buzek I
+cabinet_buzekI <- erdda_pol_long %>%
+  filter(cab_name == 'Buzek I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_buzekI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 26 & year == 2002 & (party == 'AWSP' | party == 'UW'))
+
+ches %>%
+  filter(country == 26 & year == 2014) %>%
+  select(party) %>%
+  unique()
+
+# Fixing the name of the AWSP and UW
+ ches_buzekI[1,2] <- 'UW-PD'
+ ches_buzekI[2,2] <- 'AWS'
+
+
+## Adding to the cabinet dataframe
+cabinet_buzekI <- cabinet_buzekI %>%
+  left_join(ches_buzekI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Buzek II
+cabinet_buzekII <- erdda_pol_long %>%
+  filter(cab_name == 'Buzek II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_buzekII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 26 & year == 2002 & (party == 'AWSP'))
+
+
+# Fixing the name of the AWSP
+ches_buzekII[1,2] <- 'AWS'
+
+
+## Adding to the cabinet dataframe
+cabinet_buzekII <- cabinet_buzekII %>%
+  left_join(ches_buzekII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Miller I
+cabinet_millerI <- erdda_pol_long %>%
+  filter(cab_name == 'Miller I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_millerI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 26 & year == 2002 & (party == 'SLD' | party == 'PSL' |
+                                         party == 'UP' | party == 'S'))
+
+
+#Fixing the name of the S
+ches_millerI[4,2] <- 'SRP'
+
+
+## Adding to the cabinet dataframe
+cabinet_millerI <- cabinet_millerI %>%
+  left_join(ches_millerI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Miller II
+cabinet_millerII <- erdda_pol_long %>%
+  filter(cab_name == 'Miller II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_millerII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 26 & year == 2002 & (party == 'SLD' | party == 'UP'))
+
+
+## Adding to the cabinet dataframe
+cabinet_millerII <- cabinet_millerII %>%
+  left_join(ches_millerII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Belka
+cabinet_belka <- erdda_pol_long %>%
+  filter(cab_name == 'Belka' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_belka <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 26 & year == 2006 & (party == 'SLD' | party == 'SDPL'))
+
+## Adding to the cabinet dataframe
+cabinet_belka <- cabinet_belka %>%
+  left_join(ches_belka, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Marcinkiewicz I
+cabinet_marcinkiewiczI <- erdda_pol_long %>%
+  filter(cab_name == 'Marcinkiewicz I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_marcinkiewiczI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 26 & year == 2006 & (party == 'PiS' | party == 'S' |
+                                         party == 'LPR' | party == 'PSL'))
+
+#Fixing the name of the S
+ches_marcinkiewiczI[2,2] <- 'SRP'
+
+## Adding to the cabinet dataframe
+cabinet_marcinkiewiczI <- cabinet_marcinkiewiczI %>%
+  left_join(ches_marcinkiewiczI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Kaczynski I
+cabinet_kaczynskiI <- erdda_pol_long %>%
+  filter(cab_name == 'Kaczynski I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_kaczynskiI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 26 & year == 2006 & (party == 'PiS' | party == 'S' |
+                                           party == 'LPR'))
+
+#Fixing the name of the S
+ches_kaczynskiI[1,2] <- 'SRP'
+
+## Adding to the cabinet dataframe
+cabinet_kaczynskiI <- cabinet_kaczynskiI %>%
+  left_join(ches_kaczynskiI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Tusk I
+cabinet_tuskI <- erdda_pol_long %>%
+  filter(cab_name == 'Tusk I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_tuskI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 26 & year == 2010 & (party == 'PO' | party == 'PSL'))
+
+
+## Adding to the cabinet dataframe
+cabinet_tuskI <- cabinet_tuskI %>%
+  left_join(ches_tuskI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Tusk II
+cabinet_tuskII <- erdda_pol_long %>%
+  filter(cab_name == 'Tusk II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_tuskII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 26 & year == 2014 & (party == 'PO' | party == 'PSL'))
+
+
+## Adding to the cabinet dataframe
+cabinet_tuskII <- cabinet_tuskII %>%
+  left_join(ches_tuskII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Buzek I
+round(sum(cabinet_buzekI$weighted_galtan), 2)
+round(sum(cabinet_buzekI$weighted_lrecon), 2)
+round(sum(cabinet_buzekI$weighted_eu_position), 2)
+
+# Buzek II
+round(sum(cabinet_buzekII$weighted_galtan), 2)
+round(sum(cabinet_buzekII$weighted_lrecon), 2)
+round(sum(cabinet_buzekII$weighted_eu_position), 2)
+
+# Miller I
+round(sum(cabinet_millerI$weighted_galtan), 2)
+round(sum(cabinet_millerI$weighted_lrecon), 2)
+round(sum(cabinet_millerI$weighted_eu_position), 2)
+
+# Miller II
+round(sum(cabinet_millerII$weighted_galtan), 2)
+round(sum(cabinet_millerII$weighted_lrecon), 2)
+round(sum(cabinet_millerII$weighted_eu_position), 2)
+
+# Belka
+round(sum(cabinet_belka$weighted_galtan), 2)
+round(sum(cabinet_belka$weighted_lrecon), 2)
+round(sum(cabinet_belka$weighted_eu_position), 2)
+
+# Marcinkiewicz I
+round(sum(cabinet_marcinkiewiczI$weighted_galtan), 2)
+round(sum(cabinet_marcinkiewiczI$weighted_lrecon), 2)
+round(sum(cabinet_marcinkiewiczI$weighted_eu_position), 2)
+
+# Kaczynski I
+round(sum(cabinet_kaczynskiI$weighted_galtan), 2)
+round(sum(cabinet_kaczynskiI$weighted_lrecon), 2)
+round(sum(cabinet_kaczynskiI$weighted_eu_position), 2)
+
+# Tusk I
+round(sum(cabinet_tuskII$weighted_galtan), 2)
+round(sum(cabinet_tuskII$weighted_lrecon), 2)
+round(sum(cabinet_tuskII$weighted_eu_position), 2)
+
+# Tusk II
+round(sum(cabinet_tuskII$weighted_galtan), 2)
+round(sum(cabinet_tuskII$weighted_lrecon), 2)
+round(sum(cabinet_tuskII$weighted_eu_position), 2)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Croatia
+erdda_pol_new <- erdda_new %>%
+  filter(country_name == "Poland")
+
+# Selecting columns of interest
+erdda_pol_new <- erdda_pol_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_pol_new <- erdda_pol_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "SPR",
+    . == "seats_party2" ~ "LPR",
+    . == "seats_party3" ~ "UP",
+    . == "seats_party4" ~ "KPN",
+    . == "seats_party5" ~ "PiS",
+    . == "seats_party6" ~ "PSL",
+    . == "seats_party7" ~ "ROP",
+    . == "seats_party8" ~ "SDPL",
+    . == "seats_party9" ~ "SLD",
+    . == "seats_party10" ~ "AWS",
+    . == "seats_party11" ~ "S",
+    . == "seats_party12" ~ "PL",
+    . == "seats_party13" ~ "MNSO",
+    . == "seats_party14" ~ "ZChN",
+    . == "seats_party15" ~ "PC",
+    . == "seats_party16" ~ "BBWR",
+    . == "seats_party17" ~ "UD",
+    . == "seats_party18" ~ "RP",
+    . == "seats_party19" ~ "UW-PD",
+    . == "seats_party20" ~ "PChD",
+    . == "seats_party21" ~ "ChD",
+    . == "seats_party22" ~ "KLD",
+    . == "seats_party23" ~ "PPPP",
+    . == "seats_party24" ~ "PO",
+    . == "seats_party25" ~ "UPR",
+    . == "seats_party26" ~ "Partia X",
+    . == "seats_party27" ~ "N",
+    . == "seats_party28" ~ "K15",
+    . == "seats_party29" ~ "K",
+    . == "seats_party30" ~ "SP",
+    . == "seats_party31" ~ "P",
+    . == "seats_party32" ~ "R",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest
+erdda_pol_new <- erdda_pol_new[c(17:20), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_pol_new_long <- erdda_pol_new %>%
+  pivot_longer(cols = SPR:R, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_pol_new_long <- erdda_pol_new_long %>%
+  filter(!is.na(party_seats))
+
+# Fixing name Szydlo cabinet
+erdda_pol_new_long[c(9:16), 2] <- 'Szydlo'
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Kopacz
+# Percentage of parliament seats that support the gov
+coalition_seats_kopacz <- sum(erdda_pol_new_long[4, 20], erdda_pol_new_long[8, 20])
+
+# The weighted of the governing parties in the coalition
+# Only PSL
+erdda_pol_new_long[4, 21] <- erdda_pol_new_long[4, 20] / coalition_seats_kopacz
+# Only PO
+erdda_pol_new_long[8, 21] <- erdda_pol_new_long[8, 20] / coalition_seats_kopacz
+
+# Coalition parties weights Szydlo
+# Percentage of parliament seats that support the gov
+coalition_seats_szydlo <- sum(erdda_pol_new_long[9, 20], erdda_pol_new_long[16, 20])
+
+# The weighted of the governing parties in the coalition
+# Only PiS
+erdda_pol_new_long[9, 21] <- erdda_pol_new_long[9, 20] / coalition_seats_szydlo
+# Only SP
+erdda_pol_new_long[16, 21] <- erdda_pol_new_long[16, 20] / coalition_seats_szydlo
+
+# Coalition parties weights Morawiecki I
+# Percentage of parliament seats that support the gov
+coalition_seats_morawieckiI <- sum(erdda_pol_new_long[17, 20])
+
+# The weighted of the governing parties in the coalition
+# Only PiS
+erdda_pol_new_long[17, 21] <- erdda_pol_new_long[17, 20] / coalition_seats_morawieckiI
+
+
+#----
+# Section: ideologies
+#-----
+# Kopacz
+cabinet_kopacz <- erdda_pol_new_long %>%
+  filter(cab_name == 'Kopacz' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_kopacz <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 26 & year == 2014 & (party == 'PO' | party == 'PSL'))
+
+ches %>%
+  filter(country == 29 & year == 2019) %>%
+  select(party) %>%
+  unique()
+
+## Adding to the cabinet dataframe
+cabinet_kopacz <- cabinet_kopacz %>%
+  left_join(ches_kopacz, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Szydlo
+cabinet_szydlo <- erdda_pol_new_long %>%
+  filter(cab_name == 'Szydlo' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_szydlo <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 26 & year == 2014 & (party == 'PiS' | party == 'SP'))
+
+ches %>%
+  filter(country == 26 & year == 2014) %>%
+  select(party) %>%
+  unique()
+
+## Adding to the cabinet dataframe
+cabinet_szydlo <- cabinet_szydlo %>%
+  left_join(ches_szydlo, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Morawiecki I
+cabinet_morawieckiI <- erdda_pol_new_long %>%
+  filter(cab_name == 'Morawiecki I' & !is.na(party_weight_coalition))
+
+
+## Getting ideology from ches
+ches_morawieckiI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 26 & year == 2019 & (party == 'PiS'))
+
+ches %>%
+  filter(country == 26 & year == 2014) %>%
+  select(party) %>%
+  unique()
+
+## Adding to the cabinet dataframe
+cabinet_morawieckiI <- cabinet_morawieckiI %>%
+  left_join(ches_morawieckiI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Kopacz
+round(sum(cabinet_kopacz$weighted_galtan), 2)
+round(sum(cabinet_kopacz$weighted_lrecon), 2)
+round(sum(cabinet_kopacz$weighted_eu_position), 2)
+
+# Szydlo
+round(sum(cabinet_szydlo$weighted_galtan), 2)
+round(sum(cabinet_szydlo$weighted_lrecon), 2)
+round(sum(cabinet_szydlo$weighted_eu_position), 2)
+
+# Morawiecki I
+round(sum(cabinet_morawieckiI$weighted_galtan), 2)
+round(sum(cabinet_morawieckiI$weighted_lrecon), 2)
+round(sum(cabinet_morawieckiI$weighted_eu_position), 2)
