@@ -1,0 +1,29 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+massmanifestations <- read.csv('massmanifestations.csv')
+
+# Selecting columns of interest
+massmanifestations <- massmanifestations %>%
+  select(country, year, participants, protesterdemand1, protesterdemand2, 
+         protesterdemand3, protesterdemand4) 
+
+# Filtering for protests of interest
+massmanifestations <- massmanifestations %>%
+  filter(protesterdemand1 == 'price increases, tax policy' | 
+         protesterdemand2 == 'price increases, tax policy' |
+         protesterdemand3 == 'price increases, tax policy' |
+         protesterdemand4 == 'price increases, tax policy')
+
+# Filtering for countries of interest
+desired_countries <- c(
+  "Austria", "Belgium", "Bulgaria", "Cyprus", "Czech Republic", "Germany",
+  "Denmark", "Estonia", "Greece", "Spain", "Finland", "France", "Croatia",
+  "Hungary", "Ireland", "Lithuania", "Latvia", "Netherlands",
+  "Poland", "Portugal", "Romania", "Sweden", "Slovenia", "Slovakia", "United Kingdom",
+  "Norway"
+)
+
+massmanifestations <- massmanifestations %>%
+  filter(country %in% desired_countries)
