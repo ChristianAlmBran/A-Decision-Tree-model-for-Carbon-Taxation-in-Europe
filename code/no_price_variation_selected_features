@@ -1,0 +1,56 @@
+#NoVariation
+#----
+# Preparing data frame
+allVariDecisionTreeNoVariation <- completeDataFrame
+
+
+table(allVariDecisionTreeNoVariation$Label10)
+allVariDecisionTreeNoVariation <- allVariDecisionTreeNoVariation %>% 
+  filter (Label10 == "Tax created" | Label10 == "No tax")
+
+allVariDecisionTreeNoVariation <- allVariDecisionTreeNoVariation[, c(5:8, 11, 12, 15:18, 25, 27:34)]
+
+# Transforming the target variable to factor
+allVariDecisionTreeNoVariation$Label10 <- as.factor(allVariDecisionTreeNoVariation$Label10)
+
+# Create a weight vector based on the frequencies of each category
+class_weights <- table(allVariDecisionTreeNoVariation$Label10)
+class_weights <- 1 / table(allVariDecisionTreeNoVariation$Label10)
+
+# Create a vector of weights based on conditions
+weight_vector <- ifelse(allVariDecisionTreeNoVariation$Label10 == "No tax", 0.00719, 
+                        ifelse(allVariDecisionTreeNoVariation$Label10 == "Tax created", 0.125, 1))
+
+# Create a custom training control for LOOCV
+ctrl <- trainControl(method = "LOOCV")
+set.seed(123)
+
+# Training the decision tree using LOOCV
+tree <- train(Label10 ~ libdem + weighted_leftright + weighted_galtan
+              + gdp_per_capita_ppp + share_ff_energy, 
+              data = allVariDecisionTreeNoVariation, weights = weight_vector,
+              method = "rpart", trControl = ctrl, 
+              control = rpart.control(maxdepth = 5, minbucket = 1))
+
+# Predictions
+tree_label10_predicted <- predict(tree, newdata = allVariDecisionTreeNoVariation)
+# Confusion Matrix
+confusionMatrix(tree_label10_predicted, allVariDecisionTreeNoVariation$Label10)
+
+# Visualization
+prp(tree$finalModel, varlen = 0)
+
+# Variable Importance Plot
+df <- as.data.frame(varImp(tree)$importance)
+
+df2 <- df %>%
+  rownames_to_column(var = "variable") %>%
+  rename(imp = Overall) %>%
+  arrange(desc(imp)) %>%
+  mutate(variable = fct_inorder(variable))
+
+ggplot(df2, aes(x = variable, y = imp)) +
+  geom_col(col = "black", show.legend = FALSE) +
+  coord_flip() +
+  scale_fill_grey() +
+  theme_bw()
