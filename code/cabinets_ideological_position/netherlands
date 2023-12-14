@@ -1,0 +1,502 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only Netherlands
+erdda_tne <- erdda %>%
+  filter(country_id == "the Netherlands")
+
+# Selecting columns of interest
+erdda_tne <- erdda_tne %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_tne <- erdda_tne %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "SP",
+    . == "seats_party2" ~ "CNP",
+    . == "seats_party3" ~ "PSP",
+    . == "seats_party4" ~ "GL",
+    . == "seats_party5" ~ "EVP",
+    . == "seats_party6" ~ "PPR",
+    . == "seats_party7" ~ "PvdA",
+    . == "seats_party8" ~ "AOV",
+    . == "seats_party9" ~ "Unie 55+",
+    . == "seats_party10" ~ "D66",
+    . == "seats_party11" ~ "ARP",
+    . == "seats_party12" ~ "KVP",
+    . == "seats_party13" ~ "CDA",
+    . == "seats_party14" ~ "CHU",
+    . == "seats_party15" ~ "DS70",
+    . == "seats_party16" ~ "NMP",
+    . == "seats_party17" ~ "CP-CD",
+    . == "seats_party18" ~ "GPV",
+    . == "seats_party19" ~ "RPF",
+    . == "seats_party20" ~ "SGP",
+    . == "seats_party21" ~ "RKPN",
+    . == "seats_party22" ~ "VVD",
+    . == "seats_party23" ~ "PB-RVP",
+    . == "seats_party24" ~ "CU",
+    . == "seats_party25" ~ "LPF",
+    . == "seats_party26" ~ "PVV",
+    . == "seats_party27" ~ "PvdD",
+    . == "seats_party28" ~ "50PLUS",
+    . == "seats_party29" ~ "DENK",
+    . == "seats_party30" ~ "X",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest (1999-2021)
+erdda_tne <- erdda_tne[c(22:30), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_tne_long <- erdda_tne %>%
+  pivot_longer(cols = SP:X, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_tne_long <- erdda_tne_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Kok II 
+# Percentage of parliament seats that support the gov
+coalition_seats_kokII <- sum(erdda_tne_long[3, 16], erdda_tne_long[4, 16],
+                             erdda_tne_long[9, 16])
+
+# The weighted of the governing parties in the coalition
+# Only Pvda
+erdda_tne_long[3, 17] <- erdda_tne_long[3, 16] / coalition_seats_kokII
+# Only D66
+erdda_tne_long[4, 17] <- erdda_tne_long[4, 16] / coalition_seats_kokII
+# Only VVD
+erdda_tne_long[9, 17] <- erdda_tne_long[9, 16] / coalition_seats_kokII
+
+# Coalition parties weights Balkenende II 
+# Percentage of parliament seats that support the gov
+coalition_seats_balkenendeII <- sum(erdda_tne_long[23, 16], erdda_tne_long[24, 16],
+                             erdda_tne_long[26, 16])
+
+# The weighted of the governing parties in the coalition
+# Only D66
+erdda_tne_long[23, 17] <- erdda_tne_long[23, 16] / coalition_seats_balkenendeII
+# Only CDA
+erdda_tne_long[24, 17] <- erdda_tne_long[24, 16] / coalition_seats_balkenendeII
+# Only VVD
+erdda_tne_long[26, 17] <- erdda_tne_long[26, 16] / coalition_seats_balkenendeII
+
+# Coalition parties weights Balkenende IV
+# Percentage of parliament seats that support the gov
+coalition_seats_balkenendeIV <- sum(erdda_tne_long[40, 16], erdda_tne_long[42, 16],
+                                    erdda_tne_long[45, 16])
+
+# The weighted of the governing parties in the coalition
+# Only PvdA
+erdda_tne_long[40, 17] <- erdda_tne_long[40, 16] / coalition_seats_balkenendeIV
+# Only CDA
+erdda_tne_long[42, 17] <- erdda_tne_long[42, 16] / coalition_seats_balkenendeIV
+# Only CU
+erdda_tne_long[45, 17] <- erdda_tne_long[45, 16] / coalition_seats_balkenendeIV
+
+# Coalition parties weights Balkenende V 
+# Percentage of parliament seats that support the gov
+coalition_seats_balkenendeV <- sum(erdda_tne_long[52, 16], erdda_tne_long[55, 16])
+
+# The weighted of the governing parties in the coalition
+# Only CDA
+erdda_tne_long[52, 17] <- erdda_tne_long[52, 16] / coalition_seats_balkenendeV
+# Only CU
+erdda_tne_long[55, 17] <- erdda_tne_long[55, 16] / coalition_seats_balkenendeV
+
+# Coalition parties weights Rutte I 
+# Percentage of parliament seats that support the gov
+coalition_seats_rutteI <- sum(erdda_tne_long[64, 16], erdda_tne_long[62, 16])
+
+# The weighted of the governing parties in the coalition
+# Only VVD
+erdda_tne_long[64, 17] <- erdda_tne_long[64, 16] / coalition_seats_rutteI
+# Only CDA
+erdda_tne_long[62, 17] <- erdda_tne_long[62, 16] / coalition_seats_rutteI
+
+# Coalition parties weights Rutte II 
+# Percentage of parliament seats that support the gov
+coalition_seats_rutteII <- sum(erdda_tne_long[70, 16], erdda_tne_long[74, 16])
+
+# The weighted of the governing parties in the coalition
+# Only VVD
+erdda_tne_long[74, 17] <- erdda_tne_long[74, 16] / coalition_seats_rutteII
+# Only PvdA
+erdda_tne_long[70, 17] <- erdda_tne_long[70, 16] / coalition_seats_rutteII
+
+# Coalition parties weights Rutte III 
+# Percentage of parliament seats that support the gov
+coalition_seats_rutteIII <- sum(erdda_tne_long[81, 16], erdda_tne_long[82, 16],
+                                erdda_tne_long[84, 16], erdda_tne_long[85, 16])
+
+# The weighted of the governing parties in the coalition
+# Only D66
+erdda_tne_long[81, 17] <- erdda_tne_long[81, 16] / coalition_seats_rutteIII
+# Only CDA
+erdda_tne_long[82, 17] <- erdda_tne_long[82, 16] / coalition_seats_rutteIII
+# Only VVD
+erdda_tne_long[84, 17] <- erdda_tne_long[84, 16] / coalition_seats_rutteIII
+# Only CU
+erdda_tne_long[85, 17] <- erdda_tne_long[85, 16] / coalition_seats_rutteIII
+
+#----
+# Section: ideologies
+#-----
+# Kok II
+cabinet_kokII <- erdda_tne_long %>%
+  filter(cab_name == 'Kok II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_kokII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 10 & year == 1999 & (party == 'PvdA' | party == 'D66' |
+                                        party == 'VVD'))
+ches %>%
+  filter(country == 10 & year == 1999) %>%
+  select(party)
+
+## Adding to the cabinet dataframe
+cabinet_kokII <- cabinet_kokII %>%
+  left_join(ches_kokII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Balkenende II
+cabinet_balkenendeII <- erdda_tne_long %>%
+  filter(cab_name == 'Balkenende II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_balkenendeII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 10 & year == 2002 & (party == 'CDA' | party == 'D66' |
+                                           party == 'VVD'))
+ches %>%
+  filter(country == 10 & year == 1999) %>%
+  select(party)
+
+## Adding to the cabinet dataframe
+cabinet_balkenendeII <- cabinet_balkenendeII %>%
+  left_join(ches_balkenendeII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Balkenende IV
+cabinet_balkenendeIV <- erdda_tne_long %>%
+  filter(cab_name == 'Balkenende IV' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_balkenendeIV <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 10 & year == 2006 & (party == 'CDA' | party == 'CU' |
+                                           party == 'PvdA'))
+ches %>%
+  filter(country == 10 & year == 1999) %>%
+  select(party)
+
+## Adding to the cabinet dataframe
+cabinet_balkenendeIV <- cabinet_balkenendeIV %>%
+  left_join(ches_balkenendeIV, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Balkenende V
+cabinet_balkenendeV <- erdda_tne_long %>%
+  filter(cab_name == 'Balkenende V' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_balkenendeV <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 10 & year == 2010 & (party == 'CDA' | party == 'CU'))
+
+ches %>%
+  filter(country == 10 & year == 1999) %>%
+  select(party)
+
+## Adding to the cabinet dataframe
+cabinet_balkenendeV <- cabinet_balkenendeV %>%
+  left_join(ches_balkenendeV, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Rutte I
+cabinet_rutteI <- erdda_tne_long %>%
+  filter(cab_name == 'Rutte I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_rutteI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 10 & year == 2010 & (party == 'CDA' | party == 'VVD'))
+
+## Adding to the cabinet dataframe
+cabinet_rutteI <- cabinet_rutteI %>%
+  left_join(ches_rutteI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Rutte II
+cabinet_rutteII <- erdda_tne_long %>%
+  filter(cab_name == 'Rutte II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_rutteII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 10 & year == 2014 & (party == 'PvdA' | party == 'VVD'))
+
+## Adding to the cabinet dataframe
+cabinet_rutteII <- cabinet_rutteII %>%
+  left_join(ches_rutteII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Rutte III
+cabinet_rutteIII <- erdda_tne_long %>%
+  filter(cab_name == 'Rutte III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_rutteIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 10 & year == 2019 & (party == 'VVD' | party == 'CDA' | 
+                                         party == 'D66' | party == 'CU'))
+
+## Adding to the cabinet dataframe
+cabinet_rutteIII <- cabinet_rutteIII %>%
+  left_join(ches_rutteIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Kok II
+sum(cabinet_kokII$weighted_galtan)
+sum(cabinet_kokII$weighted_lrecon)
+sum(cabinet_kokII$weighted_eu_position)
+
+# Balkenende II
+sum(cabinet_balkenendeII$weighted_galtan)
+sum(cabinet_balkenendeII$weighted_lrecon)
+sum(cabinet_balkenendeII$weighted_eu_position)
+
+# Balkenende IV
+sum(cabinet_balkenendeIV$weighted_galtan)
+sum(cabinet_balkenendeIV$weighted_lrecon)
+sum(cabinet_balkenendeIV$weighted_eu_position)
+
+# Balkenende V
+sum(cabinet_balkenendeV$weighted_galtan)
+sum(cabinet_balkenendeV$weighted_lrecon)
+sum(cabinet_balkenendeV$weighted_eu_position)
+
+# Rutte I
+sum(cabinet_rutteI$weighted_galtan)
+sum(cabinet_rutteI$weighted_lrecon)
+sum(cabinet_rutteI$weighted_eu_position)
+
+# Rutte II
+sum(cabinet_rutteII$weighted_galtan)
+sum(cabinet_rutteII$weighted_lrecon)
+sum(cabinet_rutteII$weighted_eu_position)
+
+# Rutte III
+sum(cabinet_rutteIII$weighted_galtan)
+sum(cabinet_rutteIII$weighted_lrecon)
+sum(cabinet_rutteIII$weighted_eu_position)
+
+
+ches %>%
+  filter(country == 10 & year == 1999) %>%
+  select(party)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Croatia
+erdda_tne_new <- erdda_new %>%
+  filter(country_name == "Netherlands")
+
+# Selecting columns of interest
+erdda_tne_new <- erdda_tne_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_tne_new <- erdda_tne_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "SP",
+    . == "seats_party2" ~ "CPN",
+    . == "seats_party3" ~ "PSP",
+    . == "seats_party4" ~ "GL",
+    . == "seats_party5" ~ "EVP",
+    . == "seats_party6" ~ "PPR",
+    . == "seats_party7" ~ "PvdA",
+    . == "seats_party8" ~ "AOV",
+    . == "seats_party9" ~ "Unie 55+",
+    . == "seats_party10" ~ "D66",
+    . == "seats_party11" ~ "ARP",
+    . == "seats_party12" ~ "KVP",
+    . == "seats_party13" ~ "CDA",
+    . == "seats_party14" ~ "CHU",
+    . == "seats_party15" ~ "DS70",
+    . == "seats_party16" ~ "NMP",
+    . == "seats_party17" ~ "CP-CD",
+    . == "seats_party18" ~ "GPV",
+    . == "seats_party19" ~ "RPF",
+    . == "seats_party20" ~ "SGP",
+    . == "seats_party21" ~ "RKPN",
+    . == "seats_party22" ~ "VVD",
+    . == "seats_party23" ~ "PB-RVP",
+    . == "seats_party24" ~ "CU",
+    . == "seats_party25" ~ "LPF",
+    . == "seats_party26" ~ "PVV",
+    . == "seats_party27" ~ "PvdD",
+    . == "seats_party28" ~ "50PLUS",
+    . == "seats_party29" ~ "DENK",
+    . == "seats_party30" ~ "FvD",
+    . == "seats_party31" ~ "VN",
+    . == "seats_party32" ~ "JA21",
+    . == "seats_party33" ~ "BBB",
+    . == "seats_party34" ~ "BIJ1",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest
+erdda_tne_new <- erdda_tne_new[c(21:31), ]
+
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_tne_new_long <- erdda_tne_new %>%
+  pivot_longer(cols = SP:BIJ1, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_tne_new_long <- erdda_tne_new_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Kok I 
+# Percentage of parliament seats that support the gov
+coalition_seats_kokI <- sum(erdda_tne_new_long[3, 15], erdda_tne_new_long[6, 15],
+                            erdda_tne_new_long[12, 15])
+
+# The weighted of the governing parties in the coalition
+# Only PVdA
+erdda_tne_new_long[3, 16] <- erdda_tne_new_long[3, 15] / coalition_seats_kokI
+# Only D66
+erdda_tne_new_long[6, 16] <- erdda_tne_new_long[6, 15] / coalition_seats_kokI
+# Only VVD
+erdda_tne_new_long[12, 16] <- erdda_tne_new_long[12, 15] / coalition_seats_kokI
+
+# Coalition parties weights Rutte IV
+# Percentage of parliament seats that support the gov
+coalition_seats_rutteIV <- sum(erdda_tne_new_long[101, 15], erdda_tne_new_long[102, 15],
+                               erdda_tne_new_long[104, 15], erdda_tne_new_long[105, 15] )
+
+# The weighted of the governing parties in the coalition
+# Only D66
+erdda_tne_new_long[101, 16] <- erdda_tne_new_long[101, 15] / coalition_seats_rutteIV
+# Only CDA
+erdda_tne_new_long[102, 16] <- erdda_tne_new_long[102, 15] / coalition_seats_rutteIV
+# Only VVD
+erdda_tne_new_long[104, 16] <- erdda_tne_new_long[104, 15] / coalition_seats_rutteIV
+# Only CU
+erdda_tne_new_long[105, 16] <- erdda_tne_new_long[105, 15] / coalition_seats_rutteIV
+
+#----
+# Section: ideologies
+#-----
+# Kok I
+cabinet_kokI <- erdda_tne_new_long %>%
+  filter(cab_name == 'Kok I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_kokI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 10 & year == 1999 & (party == 'PvdA' | party == 'D66' |
+                                           party == 'VVD'))
+ches %>%
+  filter(country == 10 & year == 1999) %>%
+  select(party)
+
+## Adding to the cabinet dataframe
+cabinet_kokI <- cabinet_kokI %>%
+  left_join(ches_kokI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Rutte IV
+cabinet_rutteIV <- erdda_tne_new_long %>%
+  filter(cab_name == 'Rutte IV' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_rutteIV <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 10 & year == 2019 & (party == 'CDA' | party == 'D66' |
+                                           party == 'VVD' | party == 'CU'))
+ches %>%
+  filter(country == 10 & year == 1999) %>%
+  select(party)
+
+## Adding to the cabinet dataframe
+cabinet_rutteIV <- cabinet_rutteIV %>%
+  left_join(ches_rutteIV, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Kok I
+sum(cabinet_kokI$weighted_galtan)
+sum(cabinet_kokI$weighted_lrecon)
+sum(cabinet_kokI$weighted_eu_position)
+
+# Rutte IV
+sum(cabinet_rutteIV$weighted_galtan)
+sum(cabinet_rutteIV$weighted_lrecon)
+sum(cabinet_rutteIV$weighted_eu_position)
