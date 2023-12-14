@@ -1,0 +1,393 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only Portugal
+erdda_por <- erdda %>%
+  filter(country_id == "Portugal")
+
+# Selecting columns of interest
+erdda_por <- erdda_por %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_por <- erdda_por %>%
+  rename(UDP = seats_party1, BE = seats_party2, MDP_CDE = seats_party3, 
+         PCP = seats_party4, ASDI = seats_party5, UEDS = seats_party6, 
+         PS = seats_party7, PRD = seats_party8, PSD = seats_party9, 
+         PSN = seats_party10, PPM = seats_party11, CDS_PP = seats_party12, 
+         PaF = seats_party13, PEV = seats_party14)
+
+# Filtering cabinets of interest (1999-2020)
+erdda_por <- erdda_por[c(14:22), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_por_long <- erdda_por %>%
+  pivot_longer(cols = UDP:PEV, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Guterres I
+# Percentage of parliament seats that support the gov
+coalition_seats_guterresI <- sum(erdda_por_long[7, 16])
+
+# The weighted of the governing parties in the coalition
+# Only PS
+erdda_por_long[7, 17] <- erdda_por_long[7, 16] / coalition_seats_guterresI
+
+# Coalition parties weights Guterres II
+# Percentage of parliament seats that support the gov
+coalition_seats_guterresII <- sum(erdda_por_long[21, 16])
+
+# The weighted of the governing parties in the coalition
+# Only PS
+erdda_por_long[21, 17] <- erdda_por_long[21, 16] / coalition_seats_guterresII
+
+# Coalition parties weights Barroso
+# Percentage of parliament seats that support the gov
+coalition_seats_barroso <- sum(erdda_por_long[37, 16], erdda_por_long[40, 16])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_por_long[37, 17] <- erdda_por_long[37, 16] / coalition_seats_barroso
+# Only CDS_PP
+erdda_por_long[40, 17] <- erdda_por_long[40, 16] / coalition_seats_barroso
+
+# Coalition parties weights Lopes
+# Percentage of parliament seats that support the gov
+coalition_seats_lopes <- sum(erdda_por_long[51, 16], erdda_por_long[54, 16])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_por_long[51, 17] <- erdda_por_long[51, 16] / coalition_seats_lopes
+# Only CDS_PP
+erdda_por_long[54, 17] <- erdda_por_long[54, 16] / coalition_seats_lopes
+
+# Coalition parties weights Socrates I
+# Percentage of parliament seats that support the gov
+coalition_seats_socratesI <- sum(erdda_por_long[63, 16])
+
+# The weighted of the governing parties in the coalition
+# Only PS
+erdda_por_long[63, 17] <- erdda_por_long[63, 16] / coalition_seats_socratesI
+
+# Coalition parties weights Socrates II
+# Percentage of parliament seats that support the gov
+coalition_seats_socratesII <- sum(erdda_por_long[77, 16])
+
+# The weighted of the governing parties in the coalition
+# Only PS
+erdda_por_long[77, 17] <- erdda_por_long[77, 16] / coalition_seats_socratesII
+
+# Coalition parties weights Coelho I
+# Percentage of parliament seats that support the gov
+coalition_seats_coelhoI <- sum(erdda_por_long[93, 16], erdda_por_long[96, 16])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_por_long[93, 17] <- erdda_por_long[93, 16] / coalition_seats_coelhoI
+# Only CDS_PP
+erdda_por_long[96, 17] <- erdda_por_long[96, 16] / coalition_seats_coelhoI
+
+# Coalition parties weights Coelho II
+# Percentage of parliament seats that support the gov
+coalition_seats_coelhoII <- sum(erdda_por_long[111, 16])
+
+# The weighted of the governing parties in the coalition
+# Only PSD
+erdda_por_long[111, 17] <- erdda_por_long[111, 16] / coalition_seats_coelhoII
+# Only CDS_PP
+erdda_por_long[111, 17] <- erdda_por_long[111, 16] / coalition_seats_coelhoII
+
+# Coalition parties weights Costa I
+# Percentage of parliament seats that support the gov
+coalition_seats_costaI <- sum(erdda_por_long[114, 16], erdda_por_long[116, 16],
+                              erdda_por_long[119, 16], erdda_por_long[126, 16])
+
+# The weighted of the governing parties in the coalition
+# Only PS
+erdda_por_long[119, 17] <- erdda_por_long[119, 16] / coalition_seats_costaI
+# Only BE
+erdda_por_long[114, 17] <- erdda_por_long[114, 16] / coalition_seats_costaI
+# Only PCP
+erdda_por_long[116, 17] <- erdda_por_long[116, 16] / coalition_seats_costaI
+# Only PEV
+erdda_por_long[126, 17] <- erdda_por_long[126, 16] / coalition_seats_costaI
+#----
+# Section: ideologies
+#-----
+# Guterres I
+cabinet_guterresI <- erdda_por_long %>%
+  filter(cab_name == 'Guterres I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_guterresI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 12 & year == 1999 & party == 'PS')
+
+## Adding to the cabinet dataframe
+cabinet_guterresI <- cabinet_guterresI %>%
+  mutate(
+    galtan = ches_guterresI$galtan,
+    lrecon = ches_guterresI$lrecon,
+    eu_position = ches_guterresI$eu_position,
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Guterres II
+cabinet_guterresII <- erdda_por_long %>%
+  filter(cab_name == 'Guterres II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_guterresII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 12 & year == 1999 & party == 'PS')
+
+## Adding to the cabinet dataframe
+cabinet_guterresII <- cabinet_guterresII %>%
+  mutate(
+    galtan = ches_guterresII$galtan,
+    lrecon = ches_guterresII$lrecon,
+    eu_position = ches_guterresII$eu_position,
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Durão Barroso
+cabinet_barroso <- erdda_por_long %>%
+  filter(cab_name == 'Durão Barroso' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_barroso <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 12 & year == 2002 & (party == 'PSD' | party == 'CDS-PP'))
+
+## Preparing for join
+ches_barroso$party <- gsub("-", "_", ches_barroso$party)
+#colnames(ches_barroso)[colnames(ches_barroso) == "party"] <- "party_name"
+
+## Adding to the cabinet dataframe
+cabinet_barroso <- left_join(cabinet_barroso, ches_barroso)
+cabinet_barroso <- cabinet_barroso %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Santana Lopes
+cabinet_lopes <- erdda_por_long %>%
+  filter(cab_name == 'Santana Lopes' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_lopes <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 12 & year == 2002 & (party == 'PSD' | party == 'CDS-PP'))
+
+## Preparing for join
+ches_lopes$party <- gsub("-", "_", ches_lopes$party)
+#colnames(ches_lopes)[colnames(ches_lopes) == "party"] <- "party_name"
+
+## Adding to the cabinet dataframe
+cabinet_lopes <- left_join(cabinet_lopes, ches_lopes)
+cabinet_lopes <- cabinet_lopes %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Socrates I
+cabinet_socratesI <- erdda_por_long %>%
+  filter(cab_name == 'Socrates I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_socratesI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 12 & year == 2006 & party == 'PS')
+
+## Adding to the cabinet dataframe
+cabinet_socratesI <- cabinet_socratesI %>%
+  mutate(
+    galtan = ches_socratesI$galtan,
+    lrecon = ches_socratesI$lrecon,
+    eu_position = ches_socratesI$eu_position,
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Socrates II
+cabinet_socratesII <- erdda_por_long %>%
+  filter(cab_name == 'Socrates II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_socratesII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 12 & year == 2010 & party == 'PS')
+
+## Adding to the cabinet dataframe
+cabinet_socratesII <- cabinet_socratesII %>%
+  mutate(
+    galtan = ches_socratesII$galtan,
+    lrecon = ches_socratesII$lrecon,
+    eu_position = ches_socratesII$eu_position,
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Passos Coelho I
+cabinet_coelhoI <- erdda_por_long %>%
+  filter(cab_name == 'Passos Coelho I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_coelhoI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 12 & year == 2010 & (party == 'PSD' | party == 'CDS-PP'))
+
+## Preparing for join
+ches_coelhoI$party <- gsub("-", "_", ches_coelhoI$party)
+#colnames(ches_coelhoI)[colnames(ches_coelhoI) == "party"] <- "party_name"
+
+## Adding to the cabinet dataframe
+cabinet_coelhoI <- left_join(cabinet_coelhoI, ches_coelhoI)
+cabinet_coelhoI <- cabinet_coelhoI %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Passos Coelho II
+cabinet_coelhoII <- erdda_por_long %>%
+  filter(cab_name == 'Passos Coelho II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_coelhoII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 12 & year == 2014 & (party == 'PSD' | party == 'PP'))
+
+## Preparing for join
+#colnames(ches_coelhoII)[colnames(ches_coelhoII) == "party"] <- "party_name"
+
+## Adding to the cabinet dataframe
+## I need to manually calculate this cabinet because PSD and CDS-PP made an
+## alliance to become FaP in the 2015 election
+cabinet_coelhoII <- cabinet_coelhoII %>%
+  mutate(
+    galtan = 5.9,
+    lrecon = 7.68,
+    eu_position = 6.73,
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+# Costa I
+cabinet_costaI <- erdda_por_long %>%
+  filter(cab_name == 'Costa' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_costaI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 12 & year == 2014 & (party == 'PS' | party == 'BE' |
+                                           party == 'CDU'))
+
+## Adding to the cabinet dataframe
+## Had to add the ideological positions manually because PCP and PVE made a
+## alliance in the 2015 election as CDU
+cabinet_costaI <- cabinet_costaI %>%
+  mutate(
+    galtan = c(0.6, 4.2, 3.2, 4.2),
+    lrecon = c(0.6, 0.3, 4.6, 0.3),
+    eu_position = c(3.1, 1.9, 6.4, 1.9),
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Costa II
+cabinet_costaII <- erdda_por_long %>%
+  filter(cab_name == 'Costa' & party_name == "PS")
+
+## Getting ideology from ches
+ches_costaII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 12 & year == 2019 & party == 'PS')
+
+## Adding to the cabinet dataframe
+cabinet_costaII <- cabinet_costaII %>%
+  mutate(
+    galtan = ches_costaII$galtan,
+    lrecon = ches_costaII$lrecon,
+    eu_position = ches_costaII$eu_position,
+    weighted_galtan = galtan * 1.0, 
+    weighted_lrecon = lrecon * 1.0, 
+    weighted_eu_position = eu_position * 1.0
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Guterres I
+sum(cabinet_guterresI$weighted_galtan)
+sum(cabinet_guterresI$weighted_lrecon)
+sum(cabinet_guterresI$weighted_eu_position)
+
+# Guterres II
+sum(cabinet_guterresII$weighted_galtan)
+sum(cabinet_guterresII$weighted_lrecon)
+sum(cabinet_guterresII$weighted_eu_position)
+
+# Barroso
+sum(cabinet_barroso$weighted_galtan)
+sum(cabinet_barroso$weighted_lrecon)
+sum(cabinet_barroso$weighted_eu_position)
+
+# Lopes
+sum(cabinet_lopes$weighted_galtan)
+sum(cabinet_lopes$weighted_lrecon)
+sum(cabinet_lopes$weighted_eu_position)
+
+# Socrates I
+sum(cabinet_socratesI$weighted_galtan)
+sum(cabinet_socratesI$weighted_lrecon)
+sum(cabinet_socratesI$weighted_eu_position)
+
+# Socrates II
+sum(cabinet_socratesII$weighted_galtan)
+sum(cabinet_socratesII$weighted_lrecon)
+sum(cabinet_socratesII$weighted_eu_position)
+
+# Coelho I
+sum(cabinet_coelhoI$weighted_galtan)
+sum(cabinet_coelhoI$weighted_lrecon)
+sum(cabinet_coelhoI$weighted_eu_position)
+
+# Coelho II
+sum(cabinet_coelhoII$weighted_galtan)
+sum(cabinet_coelhoII$weighted_lrecon)
+sum(cabinet_coelhoII$weighted_eu_position)
+
+# Costa I
+sum(cabinet_costaI$weighted_galtan)
+sum(cabinet_costaI$weighted_lrecon)
+sum(cabinet_costaI$weighted_eu_position)
+
+# Costa II
+sum(cabinet_costaII$weighted_galtan)
+sum(cabinet_costaII$weighted_lrecon)
+sum(cabinet_costaII$weighted_eu_position)
