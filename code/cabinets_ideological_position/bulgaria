@@ -1,0 +1,411 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only Bulgaria
+erdda_bul <- erdda %>%
+  filter(country_id == "Bulgaria")
+
+# Selecting columns of interest
+erdda_bul <- erdda_bul %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_bul <- erdda_bul %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "BSP",
+    . == "seats_party2" ~ "PA",
+    . == "seats_party3" ~ "EL",
+    . == "seats_party4" ~ "BBB",
+    . == "seats_party5" ~ "DPS",
+    . == "seats_party6" ~ "NI",
+    . == "seats_party7" ~ "RZS",
+    . == "seats_party8" ~ "BZNS",
+    . == "seats_party9" ~ "BNS",
+    . == "seats_party10" ~ "NS",
+    . == "seats_party11" ~ "NDSV",
+    . == "seats_party12" ~ "NV",
+    . == "seats_party13" ~ "GERB",
+    . == "seats_party14" ~ "SDS",
+    . == "seats_party15" ~ "SK",
+    . == "seats_party16" ~ "DSB",
+    . == "seats_party17" ~ "X",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest (1999-2014)
+erdda_bul <- erdda_bul[c(8:14), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_bul_long <- erdda_bul %>%
+  pivot_longer(cols = BSP:X, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_bul_long <- erdda_bul_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Kostov 
+# Percentage of parliament seats that support the gov
+coalition_seats_kostov <- sum(erdda_bul_long[2, 15], erdda_bul_long[4, 15],
+                              erdda_bul_long[5, 15], erdda_bul_long[6, 15])
+
+# The weighted of the governing parties in the coalition
+# Only EL
+erdda_bul_long[2, 16] <- erdda_bul_long[2, 15] / coalition_seats_kostov
+# Only DPS
+erdda_bul_long[4, 16] <- erdda_bul_long[4, 15] / coalition_seats_kostov
+# Only NS
+erdda_bul_long[5, 16] <- erdda_bul_long[5, 15] / coalition_seats_kostov
+# Only SDS
+erdda_bul_long[6, 16] <- erdda_bul_long[6, 15] / coalition_seats_kostov
+
+# Coalition parties weights Saxecoburggothski I 
+# Percentage of parliament seats that support the gov
+coalition_seats_saxecoburggothskiI <- sum(erdda_bul_long[11, 15], 
+                                          erdda_bul_long[12, 15])
+
+# The weighted of the governing parties in the coalition
+# Only DPS
+erdda_bul_long[11, 16] <- erdda_bul_long[11, 15] / 
+  coalition_seats_saxecoburggothskiI
+# Only NDSV
+erdda_bul_long[12, 16] <- erdda_bul_long[12, 15] / 
+  coalition_seats_saxecoburggothskiI
+
+# Coalition parties weights Saxecoburggothski II 
+# Percentage of parliament seats that support the gov
+coalition_seats_saxecoburggothskiII <- sum(erdda_bul_long[17, 15], 
+                                           erdda_bul_long[19, 15],
+                                           erdda_bul_long[20, 15])
+
+# The weighted of the governing parties in the coalition
+# Only DPS
+erdda_bul_long[17, 16] <- erdda_bul_long[17, 15] / 
+  coalition_seats_saxecoburggothskiII
+# Only NDSV
+erdda_bul_long[19, 16] <- erdda_bul_long[19, 15] / 
+  coalition_seats_saxecoburggothskiII
+# Only NU
+erdda_bul_long[20, 16] <- erdda_bul_long[20, 15] / 
+  coalition_seats_saxecoburggothskiII
+
+# Coalition parties weights Stanishev 
+# Percentage of parliament seats that support the gov
+coalition_seats_stanishev <- sum(erdda_bul_long[23, 15], erdda_bul_long[26, 15],
+                                 erdda_bul_long[28, 15])
+
+# The weighted of the governing parties in the coalition
+# Only BSP
+erdda_bul_long[23, 16] <- erdda_bul_long[23, 15] / coalition_seats_stanishev
+# Only DPS
+erdda_bul_long[26, 16] <- erdda_bul_long[26, 15] / coalition_seats_stanishev
+# Only NDSV
+erdda_bul_long[28, 16] <- erdda_bul_long[28, 15] / coalition_seats_stanishev
+
+# Coalition parties weights Borissov 
+# Percentage of parliament seats that support the gov
+coalition_seats_borissov <- sum(erdda_bul_long[34, 15], erdda_bul_long[39, 15],
+                                 erdda_bul_long[40, 15])
+
+# The weighted of the governing parties in the coalition
+# Only PA
+erdda_bul_long[34, 16] <- erdda_bul_long[34, 15] / coalition_seats_borissov
+# Only GERB
+erdda_bul_long[39, 16] <- erdda_bul_long[39, 15] / coalition_seats_borissov
+# Only SK
+erdda_bul_long[40, 16] <- erdda_bul_long[40, 15] / coalition_seats_borissov
+
+# Coalition parties weights Oresharski 
+# Percentage of parliament seats that support the gov
+coalition_seats_oresharski <- sum(erdda_bul_long[42, 15], erdda_bul_long[43, 15],
+                                  erdda_bul_long[44, 15])
+
+# The weighted of the governing parties in the coalition
+# Only BSP
+erdda_bul_long[42, 16] <- erdda_bul_long[42, 15] / coalition_seats_oresharski
+# Only PA
+erdda_bul_long[43, 16] <- erdda_bul_long[43, 15] / coalition_seats_oresharski
+# Only DPS
+erdda_bul_long[44, 16] <- erdda_bul_long[44, 15] / coalition_seats_oresharski
+
+#----
+# Section: ideologies
+#-----
+# Kostov
+cabinet_kostov <- erdda_bul_long %>%
+  filter(cab_name == 'Kostov' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_kostov <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 20 & year == 2014 & (party == 'SDS' | party == 'NS' |
+                                           party == 'DPS' | party == 'EL'))
+
+## Adding to the cabinet dataframe
+cabinet_milanovic <- cabinet_milanovic %>%
+  left_join(ches_milanovic, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Saxecoburggothski I 
+cabinet_saxecoburggothskiI <- erdda_bul_long %>%
+  filter(cab_name == 'Saxecoburggothski I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_saxecoburggothskiI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 20 & year == 2002 & (party == 'NDSV' | party == 'DPS'))
+
+## Adding to the cabinet dataframe
+cabinet_saxecoburggothskiI <- cabinet_saxecoburggothskiI %>%
+  left_join(ches_saxecoburggothskiI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Stanishev 
+cabinet_stanishev <- erdda_bul_long %>%
+  filter(cab_name == 'Stanishev' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_stanishev <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 20 & year == 2006 & (party == 'NDSV' | party == 'DPS' | 
+                                           party == 'KzB'))
+# Fixing the name of the BSP
+ches_stanishev[2,2] <- 'BSP'
+
+ches %>%
+  filter(country == 20 & year == 2014) %>%
+  select(party)
+## Adding to the cabinet dataframe
+cabinet_stanishev <- cabinet_stanishev %>%
+  left_join(ches_stanishev, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Borissov 
+cabinet_borissov <- erdda_bul_long %>%
+  filter(cab_name == 'Borissov' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_borissov <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 20 & year == 2010 & (party == 'GERB' | party == 'NOA'|
+                                           party == 'ODS' | party == 'DSB')) 
+
+# Removing SK
+ches_borissov <- ches_borissov[c(1,3,4), ]
+ches_borissov[2, 2] <- 'SK'
+ches_borissov[2, 4] <- 4.08
+ches_borissov[2, 5] <- 7.81
+ches_borissov[2, 6] <- 6.58
+
+# Fixing the name of the NOA
+ches_borissov[1,2] <- 'PA'
+
+ches %>%
+  filter(country == 20 & year == 2014) %>%
+  select(party)
+## Adding to the cabinet dataframe
+cabinet_borissov <- cabinet_borissov %>%
+  left_join(ches_borissov, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Oresharski 
+cabinet_oresharski <- erdda_bul_long %>%
+  filter(cab_name == 'Oresharski' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_oresharski <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 20 & year == 2014 & (party == 'BSP' | party == 'DPS' | 
+                                           party == 'ATAKA'))
+# Fixing the name of the Ataka
+ches_oresharski[1,2] <- 'PA'
+
+
+## Adding to the cabinet dataframe
+cabinet_oresharski <- cabinet_oresharski %>%
+  left_join(ches_oresharski, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Saxecoburggothski I
+sum(cabinet_saxecoburggothskiI$weighted_galtan)
+sum(cabinet_saxecoburggothskiI$weighted_lrecon)
+sum(cabinet_saxecoburggothskiI$weighted_eu_position)
+
+# Stanishev
+round(sum(cabinet_stanishev$weighted_galtan), 2)
+round(sum(cabinet_stanishev$weighted_lrecon), 2)
+round(sum(cabinet_stanishev$weighted_eu_position), 2)
+
+# Borissov
+round(sum(cabinet_borissov$weighted_galtan), 2)
+round(sum(cabinet_borissov$weighted_lrecon), 2)
+round(sum(cabinet_borissov$weighted_eu_position), 2)
+
+# Oresharski
+round(sum(cabinet_oresharski$weighted_galtan), 2)
+round(sum(cabinet_oresharski$weighted_lrecon), 2)
+round(sum(cabinet_oresharski$weighted_eu_position), 2)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Bulgaria
+erdda_bul_new <- erdda_new %>%
+  filter(country_name == "Bulgaria")
+
+# Selecting columns of interest
+erdda_bul_new <- erdda_bul_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_bul_new <- erdda_bul_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "BSP",
+    . == "seats_party2" ~ "PA",
+    . == "seats_party3" ~ "EL",
+    . == "seats_party4" ~ "BBB",
+    . == "seats_party5" ~ "DPS",
+    . == "seats_party6" ~ "NI",
+    . == "seats_party7" ~ "RZS",
+    . == "seats_party8" ~ "BZNS",
+    . == "seats_party9" ~ "BNS",
+    . == "seats_party10" ~ "NS",
+    . == "seats_party11" ~ "NDSV",
+    . == "seats_party12" ~ "NV",
+    . == "seats_party13" ~ "GERB",
+    . == "seats_party14" ~ "SDS",
+    . == "seats_party15" ~ "SK",
+    . == "seats_party16" ~ "DSB",
+    . == "seats_party17" ~ "PF",
+    . == "seats_party18" ~ "BBZ",
+    . == "seats_party19" ~ "Volya",
+    . == "seats_party20" ~ "OP",
+    . == "seats_party21" ~ "RB",
+    . == "seats_party22" ~ "ABV",
+    . == "seats_party23" ~ "ITN",
+    . == "seats_party24" ~ "DB",
+    . == "seats_party25" ~ "IBG-NI",
+    . == "seats_party26" ~ "V",
+    . == "seats_party27" ~ "PP",
+    . == "seats_party28" ~ "BV",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest (2014-2021)
+erdda_bul_new <- erdda_bul_new[c(16:21), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_bul_new_long <- erdda_bul_new %>%
+  pivot_longer(cols = BSP:BV, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_bul_new_long <- erdda_bul_new_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Borissov II 
+# Percentage of parliament seats that support the gov
+coalition_seats_borissovII <- sum(erdda_bul_new_long[4, 16], erdda_bul_new_long[5, 16],
+                                  erdda_bul_new_long[7, 16], erdda_bul_new_long[8, 16])
+
+# The weighted of the governing parties in the coalition
+# Only GERB
+erdda_bul_new_long[4, 17] <- erdda_bul_new_long[4, 16] / coalition_seats_borissovII
+# Only PF
+erdda_bul_new_long[5, 17] <- erdda_bul_new_long[5, 16] / coalition_seats_borissovII
+# Only RB
+erdda_bul_new_long[7, 17] <- erdda_bul_new_long[7, 16] / coalition_seats_borissovII
+# Only ABV
+erdda_bul_new_long[8, 17] <- erdda_bul_new_long[8, 16] / coalition_seats_borissovII
+
+# Coalition parties weights Borissov III 
+# Percentage of parliament seats that support the gov
+coalition_seats_borissovIII <- sum(erdda_bul_new_long[11, 16], erdda_bul_new_long[12, 16],
+                                  erdda_bul_new_long[13, 16])
+
+# The weighted of the governing parties in the coalition
+# Only GERB
+erdda_bul_new_long[11, 17] <- erdda_bul_new_long[11, 16] / coalition_seats_borissovIII
+# Only Volga
+erdda_bul_new_long[12, 17] <- erdda_bul_new_long[12, 16] / coalition_seats_borissovIII
+# Only OP
+erdda_bul_new_long[13, 17] <- erdda_bul_new_long[13, 16] / coalition_seats_borissovIII
+
+# Coalition parties weights Petrov 
+# Percentage of parliament seats that support the gov
+coalition_seats_petrov <- sum(erdda_bul_new_long[26, 16], erdda_bul_new_long[29, 16],
+                              erdda_bul_new_long[30, 16], erdda_bul_new_long[32, 16])
+
+# The weighted of the governing parties in the coalition
+# Only BSP
+erdda_bul_new_long[26, 17] <- erdda_bul_new_long[26, 16] / coalition_seats_petrov
+# Only ITN
+erdda_bul_new_long[29, 17] <- erdda_bul_new_long[29, 16] / coalition_seats_petrov
+# Only DB
+erdda_bul_new_long[30, 17] <- erdda_bul_new_long[30, 16] / coalition_seats_petrov
+# Only PP
+erdda_bul_new_long[32, 17] <- erdda_bul_new_long[32, 16] / coalition_seats_petrov
+
+#----
+# Section: ideologies
+#-----
+# Borissov II
+cabinet_borissovII <- erdda_bul_new_long %>%
+  filter(cab_name == 'Borissov II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_kostov <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 20 & year == 2014 & (party == 'SDS' | party == 'NS' |
+                                           party == 'DPS' | party == 'EL'))
+
+## Adding to the cabinet dataframe
+cabinet_milanovic <- cabinet_milanovic %>%
+  left_join(ches_milanovic, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
