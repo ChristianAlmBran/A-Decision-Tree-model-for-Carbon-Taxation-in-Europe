@@ -1,0 +1,563 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+  
+# filtering only Denamark
+erdda_den <- erdda %>%
+  filter(country_id == "Denmark")
+
+# Selecting columns of interest
+erdda_den <- erdda_den %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_den <- erdda_den %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "DKP",
+    . == "seats_party2" ~ "FK",
+    . == "seats_party3" ~ "EL",
+    . == "seats_party4" ~ "VS",
+    . == "seats_party5" ~ "SF",
+    . == "seats_party6" ~ "SD",
+    . == "seats_party7" ~ "RV",
+    . == "seats_party8" ~ "RF",
+    . == "seats_party9" ~ "LC",
+    . == "seats_party10" ~ "CD",
+    . == "seats_party11" ~ "KrF",
+    . == "seats_party12" ~ "KF",
+    . == "seats_party13" ~ "V",
+    . == "seats_party14" ~ "UN",
+    . == "seats_party15" ~ "FrP",
+    . == "seats_party17" ~ "DF",
+    . == "seats_party18" ~ "LA",
+    . == "seats_party19" ~ "Alt",
+    . == "seats_party20" ~ "X",
+    . == "seats_party21" ~ "X2",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest (1999-2021)
+erdda_den <- erdda_den[c(31:39), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_den_long <- erdda_den %>%
+  pivot_longer(cols = DKP:X2, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_den_long <- erdda_den_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Nyrup 
+# Percentage of parliament seats that support the gov
+coalition_seats_nyrup <- sum(erdda_den_long[3, 15], erdda_den_long[4, 15])
+
+# The weighted of the governing parties in the coalition
+# Only S
+erdda_den_long[3, 16] <- erdda_den_long[3, 15] / coalition_seats_nyrup
+# Only RV
+erdda_den_long[4, 16] <- erdda_den_long[4, 15] / coalition_seats_nyrup
+
+# Coalition parties weights Fogh I
+# Percentage of parliament seats that support the gov
+coalition_seats_foghI <- sum(erdda_den_long[17, 15], erdda_den_long[18, 15],
+                            erdda_den_long[19, 15])
+
+# The weighted of the governing parties in the coalition
+# Only KF
+erdda_den_long[17, 16] <- erdda_den_long[17, 15] / coalition_seats_foghI
+# Only V
+erdda_den_long[18, 16] <- erdda_den_long[18, 15] / coalition_seats_foghI
+# Only DFP
+erdda_den_long[19, 16] <- erdda_den_long[19, 15] / coalition_seats_foghI
+
+# Coalition parties weights Fogh II
+# Percentage of parliament seats that support the gov
+coalition_seats_foghII <- sum(erdda_den_long[25, 15], erdda_den_long[26, 15],
+                            erdda_den_long[27, 15])
+
+# The weighted of the governing parties in the coalition
+# Only KF
+erdda_den_long[25, 16] <- erdda_den_long[25, 15] / coalition_seats_foghII
+# Only V
+erdda_den_long[26, 16] <- erdda_den_long[26, 15] / coalition_seats_foghII
+# Only DFP
+erdda_den_long[27, 16] <- erdda_den_long[27, 15] / coalition_seats_foghII
+
+# Coalition parties weights Fogh III
+# Percentage of parliament seats that support the gov
+coalition_seats_foghIII <- sum(erdda_den_long[34, 15], erdda_den_long[33, 15],
+                              erdda_den_long[35, 15])
+
+# The weighted of the governing parties in the coalition
+# Only KF
+erdda_den_long[33, 16] <- erdda_den_long[33, 15] / coalition_seats_foghIII
+# Only V
+erdda_den_long[34, 16] <- erdda_den_long[34, 15] / coalition_seats_foghIII
+# Only DFP
+erdda_den_long[35, 16] <- erdda_den_long[35, 15] / coalition_seats_foghIII
+
+# Coalition parties weights Lokke I
+# Percentage of parliament seats that support the gov
+coalition_seats_lokkeI <- sum(erdda_den_long[42, 15], erdda_den_long[43, 15],
+                              erdda_den_long[44, 15])
+
+# The weighted of the governing parties in the coalition
+# Only KF
+erdda_den_long[42, 16] <- erdda_den_long[42, 15] / coalition_seats_lokkeI
+# Only V
+erdda_den_long[43, 16] <- erdda_den_long[43, 15] / coalition_seats_lokkeI
+# Only DFP
+erdda_den_long[44, 16] <- erdda_den_long[44, 15] / coalition_seats_lokkeI
+
+
+# Coalition parties weights Thorning-Schmidt I 
+# Percentage of parliament seats that support the gov
+coalition_seats_thorningI <- sum(erdda_den_long[49, 15], erdda_den_long[50, 15],
+                              erdda_den_long[51, 15])
+
+# The weighted of the governing parties in the coalition
+# Only SF
+erdda_den_long[49, 16] <- erdda_den_long[49, 15] / coalition_seats_thorningI
+# Only S
+erdda_den_long[50, 16] <- erdda_den_long[50, 15] / coalition_seats_thorningI
+# Only RV
+erdda_den_long[51, 16] <- erdda_den_long[51, 15] / coalition_seats_thorningI
+
+# Coalition parties weights Thorning-Schmidt II 
+# Percentage of parliament seats that support the gov
+coalition_seats_thorningII <- sum(erdda_den_long[58, 15], erdda_den_long[59, 15],
+                                erdda_den_long[60, 15])
+
+# The weighted of the governing parties in the coalition
+# Only SF
+erdda_den_long[58, 16] <- erdda_den_long[58, 15] / coalition_seats_thorningII
+# Only S
+erdda_den_long[59, 16] <- erdda_den_long[59, 15] / coalition_seats_thorningII
+# Only RV
+erdda_den_long[60, 16] <- erdda_den_long[60, 15] / coalition_seats_thorningII
+
+# Coalition parties weights Lakke II
+# Percentage of parliament seats that support the gov
+coalition_seats_lakkeII <- sum(erdda_den_long[72, 15])
+
+# The weighted of the governing parties in the coalition
+# Only V
+erdda_den_long[72, 16] <- erdda_den_long[72, 15] / coalition_seats_lakkeII
+
+# Coalition parties weights Lakke III
+# Percentage of parliament seats that support the gov
+coalition_seats_lakkeIII <- sum(erdda_den_long[81, 15], erdda_den_long[82, 15],
+                               erdda_den_long[84, 15])
+
+# The weighted of the governing parties in the coalition
+# Only V
+erdda_den_long[82, 16] <- erdda_den_long[82, 15] / coalition_seats_lakkeIII
+# Only RF
+erdda_den_long[81, 16] <- erdda_den_long[81, 15] / coalition_seats_lakkeIII
+# Only LA
+erdda_den_long[84, 16] <- erdda_den_long[84, 15] / coalition_seats_lakkeIII
+
+#----
+# Section: ideologies
+#-----
+# Nyrup Rasmussen IV
+cabinet_nyrup <- erdda_den_long %>%
+  filter(cab_name == 'Nyrup Rasmussen IV' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_nyrup <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 2 & year == 1999 & (party == 'SD' | party == 'RV'))
+
+## Adding to the cabinet dataframe
+cabinet_nyrup <- cabinet_nyrup %>%
+  left_join(ches_nyrup, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Fogh Rasmussen I 
+cabinet_foghI <- erdda_den_long %>%
+  filter(cab_name == 'Fogh Rasmussen I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_foghI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 2 & year == 2002 & (party == 'V' | party == 'KF' |
+                                        party == 'DF'))
+
+## Adding to the cabinet dataframe
+cabinet_foghI <- cabinet_foghI %>%
+  left_join(ches_foghI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Fogh Rasmussen II 
+cabinet_foghII <- erdda_den_long %>%
+  filter(cab_name == 'Fogh Rasmussen II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_foghII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 2 & year == 2006 & (party == 'V' | party == 'KF' |
+                                          party == 'DF'))
+
+## Adding to the cabinet dataframe
+cabinet_foghII <- cabinet_foghII %>%
+  left_join(ches_foghII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Fogh Rasmussen III 
+cabinet_foghIII <- erdda_den_long %>%
+  filter(cab_name == 'Fogh Rasmussen III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_foghIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 2 & year == 2006 & (party == 'V' | party == 'KF' |
+                                          party == 'DF'))
+
+## Adding to the cabinet dataframe
+cabinet_foghIII <- cabinet_foghIII %>%
+  left_join(ches_foghIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Lokke Rasmussen I
+cabinet_lokkeI <- erdda_den_long %>%
+  filter(cab_name == 'Løkke Rasmussen I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_lokkeI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 2 & year == 2010 & (party == 'V' | party == 'KF' |
+                                        party == 'DF'))
+
+## Adding to the cabinet dataframe
+cabinet_lokkeI <- cabinet_lokkeI %>%
+  left_join(ches_lokkeI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Thorning-Schmidit I
+cabinet_thorningI <- erdda_den_long %>%
+  filter(cab_name == 'Thorning-Schmidt I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_thorningI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 2 & year == 2010 & (party == 'SD' | party == 'RV' |
+                                          party == 'SF'))
+
+## Adding to the cabinet dataframe
+cabinet_thorningI <- cabinet_thorningI %>%
+  left_join(ches_thorningI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Thorning-Schmidit II
+cabinet_thorningII <- erdda_den_long %>%
+  filter(cab_name == 'Thorning-Schmidt II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_thorningII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 2 & year == 2014 & (party == 'SD' | party == 'RV' |
+                                          party == 'SF'))
+
+## Adding to the cabinet dataframe
+cabinet_thorningII <- cabinet_thorningII %>%
+  left_join(ches_thorningII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Lokke Rasmussen II
+cabinet_lokkeII <- erdda_den_long %>%
+  filter(cab_name == 'Løkke Rasmussen II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_lokkeII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 2 & year == 2014 & (party == 'V'))
+
+## Adding to the cabinet dataframe
+cabinet_lokkeII <- cabinet_lokkeII %>%
+  left_join(ches_lokkeII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Lokke Rasmussen III
+cabinet_lokkeIII <- erdda_den_long %>%
+  filter(cab_name == 'Løkke Rasmussen III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_lokkeIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 2 & year == 2019 & (party == 'v' | party == 'KF' |
+                                          party == 'LA'))
+
+# Fixing name, v = V
+ches_lokkeIII[3, 2] <- 'V'
+
+## Adding to the cabinet dataframe
+cabinet_lokkeIII <- cabinet_lokkeIII %>%
+  left_join(ches_lokkeIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Nyrup Rasmussen IV
+sum(cabinet_nyrup$weighted_galtan)
+sum(cabinet_nyrup$weighted_lrecon)
+sum(cabinet_nyrup$weighted_eu_position)
+
+# Fogh Rasmussen I 
+sum(cabinet_foghI$weighted_galtan)
+sum(cabinet_foghI$weighted_lrecon)
+sum(cabinet_foghI$weighted_eu_position)
+
+# Fogh Rasmussen II 
+sum(cabinet_foghII$weighted_galtan)
+sum(cabinet_foghII$weighted_lrecon)
+sum(cabinet_foghII$weighted_eu_position)
+
+# Fogh Rasmussen III 
+sum(cabinet_foghIII$weighted_galtan)
+sum(cabinet_foghIII$weighted_lrecon)
+sum(cabinet_foghIII$weighted_eu_position)
+
+# Lokke Rasmussen I
+sum(cabinet_lokkeI$weighted_galtan)
+sum(cabinet_lokkeI$weighted_lrecon)
+sum(cabinet_lokkeI$weighted_eu_position)
+
+# Thorning-Schmidt I
+sum(cabinet_thorningI$weighted_galtan)
+sum(cabinet_thorningI$weighted_lrecon)
+sum(cabinet_thorningI$weighted_eu_position)
+
+# Thorning-Schmidt II
+sum(cabinet_thorningII$weighted_galtan)
+sum(cabinet_thorningII$weighted_lrecon)
+sum(cabinet_thorningII$weighted_eu_position)
+
+# Lokke Rasmussen II
+sum(cabinet_lokkeII$weighted_galtan)
+sum(cabinet_lokkeII$weighted_lrecon)
+sum(cabinet_lokkeII$weighted_eu_position)
+
+# Lokke Rasmussen III
+sum(cabinet_lokkeIII$weighted_galtan)
+sum(cabinet_lokkeIII$weighted_lrecon)
+sum(cabinet_lokkeIII$weighted_eu_position)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Denmark
+erdda_den_new <- erdda_new %>%
+  filter(country_name == "Denmark")
+
+# Selecting columns of interest
+erdda_den_new <- erdda_den_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_den_new <- erdda_den_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "DKP",
+    . == "seats_party2" ~ "FK",
+    . == "seats_party3" ~ "EL",
+    . == "seats_party4" ~ "VS",
+    . == "seats_party5" ~ "SF",
+    . == "seats_party6" ~ "SD",
+    . == "seats_party7" ~ "RV",
+    . == "seats_party8" ~ "RF",
+    . == "seats_party9" ~ "LC",
+    . == "seats_party10" ~ "CD",
+    . == "seats_party11" ~ "KrF",
+    . == "seats_party12" ~ "KF",
+    . == "seats_party13" ~ "V",
+    . == "seats_party14" ~ "UN",
+    . == "seats_party15" ~ "FrP",
+    . == "seats_party16" ~ "DFP",
+    . == "seats_party17" ~ "LA",
+    . == "seats_party18" ~ "Alt",
+    . == "seats_party19" ~ "NB",
+    . == "seats_party20" ~ "M",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest
+erdda_den_new <- erdda_den_new[c(29:40), ]
+
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_den_new_long <- erdda_den_new %>%
+  pivot_longer(cols = DKP:M, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_den_new_long <- erdda_den_new_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Nyrup Rasmussen II
+# Percentage of parliament seats that support the gov
+coalition_seats_nyrupII <- sum(erdda_den_new_long[3, 18], erdda_den_new_long[4, 18],
+                               erdda_den_new_long[5, 18])
+
+# The weighted of the governing parties in the coalition
+# Only SD
+erdda_den_new_long[3, 19] <- erdda_den_new_long[3, 18] / coalition_seats_nyrupII
+# Only RV
+erdda_den_new_long[4, 19] <- erdda_den_new_long[4, 18] / coalition_seats_nyrupII
+# Only CD
+erdda_den_new_long[5, 19] <- erdda_den_new_long[5, 18] / coalition_seats_nyrupII
+
+# Coalition parties weights Nyrup Rasmussen III
+# Percentage of parliament seats that support the gov
+coalition_seats_nyrupIII <- sum(erdda_den_new_long[11, 18], erdda_den_new_long[12, 18],
+                                erdda_den_new_long[13, 18])
+
+# The weighted of the governing parties in the coalition
+# Only SD
+erdda_den_new_long[11, 19] <- erdda_den_new_long[11, 18] / coalition_seats_nyrupIII
+# Only RV
+erdda_den_new_long[12, 19] <- erdda_den_new_long[12, 18] / coalition_seats_nyrupIII
+# Only CD
+erdda_den_new_long[13, 19] <- erdda_den_new_long[13, 18] / coalition_seats_nyrupIII
+
+# Coalition parties weights Federiksen I
+# Percentage of parliament seats that support the gov
+coalition_seats_federiksenI <- sum(erdda_den_new_long[92, 18], erdda_den_new_long[94, 18])
+
+# The weighted of the governing parties in the coalition
+# Only SD
+erdda_den_new_long[94, 19] <- erdda_den_new_long[94, 18] / coalition_seats_federiksenI
+# Only EL
+erdda_den_new_long[92, 19] <- erdda_den_new_long[92, 18] / coalition_seats_federiksenI
+
+#----
+# Section: ideologies
+#-----
+#  Nyrup Rasmussen III
+cabinet_nyrupII <- erdda_den_new_long %>%
+  filter(cab_name == 'Nyrup Rasmussen III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_nyrupII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 2 & year == 1999 & (party == 'SD' | party == 'RV' |
+                                          party == 'CD'))
+
+## Adding to the cabinet dataframe
+cabinet_nyrupII <- cabinet_nyrupII %>%
+  left_join(ches_nyrupII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#  Nyrup Rasmussen III
+cabinet_nyrupIII <- erdda_den_new_long %>%
+  filter(cab_name == 'Nyrup Rasmussen III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_nyrupIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 2 & year == 1999 & (party == 'SD' | party == 'RV' |
+                                          party == 'CD'))
+
+## Adding to the cabinet dataframe
+cabinet_nyrupIII <- cabinet_nyrupIII %>%
+  left_join(ches_nyrupIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#  Frederiksen I
+cabinet_frederiksenI <- erdda_den_new_long %>%
+  filter(cab_name == 'Frederiksen I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_frederiksenI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 2 & year == 2019 & (party == 'SD' | party == 'EL'))
+
+## Adding to the cabinet dataframe
+cabinet_frederiksenI <- cabinet_frederiksenI %>%
+  left_join(ches_frederiksenI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Nyrup Rasmussen II
+sum(cabinet_nyrupII$weighted_galtan)
+sum(cabinet_nyrupII$weighted_lrecon)
+sum(cabinet_nyrupII$weighted_eu_position)
+
+# Nyrup Rasmussen III
+sum(cabinet_nyrupIII$weighted_galtan)
+sum(cabinet_nyrupIII$weighted_lrecon)
+sum(cabinet_nyrupIII$weighted_eu_position)
+
+# Frederiksen I
+sum(cabinet_frederiksenI$weighted_galtan)
+sum(cabinet_frederiksenI$weighted_lrecon)
+sum(cabinet_frederiksenI$weighted_eu_position)
