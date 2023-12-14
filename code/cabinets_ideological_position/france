@@ -1,0 +1,494 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only France
+erdda_fra <- erdda %>%
+  filter(country_id == "France")
+
+# Selecting columns of interest
+erdda_fra <- erdda_fra %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_fra <- erdda_fra %>%
+  rename(C = seats_party1, L = seats_party2, V = seats_party3, 
+         OG = seats_party4, S = seats_party5, R = seats_party6, 
+         LREM = seats_party7, `CD&CR` = seats_party8, CL = seats_party9, 
+         G = seats_party10, UR = seats_party11, RN = seats_party12, 
+         X = seats_party14)
+
+# Filtering cabinets of interest (1999-2021)
+erdda_fra <- erdda_fra[c(24:37), ]
+erdda_fra <- erdda_fra %>%
+    filter(cab_name == 'Jospin' | cab_name == 'Raffarin II and III' | 
+             cab_name == 'de Villepin' | cab_name == 'Fillon II' | 
+             cab_name == 'Ayrault II' |  cab_name == 'Valls II' |
+             cab_name == 'Valls III' | cab_name == 'Philippe II' )
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_fra_long <- erdda_fra %>%
+  pivot_longer(cols = C:X, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Jospin 
+# Percentage of parliament seats that support the gov
+coalition_seats_jospin <- sum(erdda_fra_long[1, 13], erdda_fra_long[3, 13],
+                                  erdda_fra_long[5, 13], erdda_fra_long[6, 13])
+
+# The weighted of the governing parties in the coalition
+# Only C
+erdda_fra_long[1, 14] <- erdda_fra_long[1, 13] / coalition_seats_jospin
+# Only V
+erdda_fra_long[3, 14] <- erdda_fra_long[3, 13] / coalition_seats_jospin
+# Only S
+erdda_fra_long[5, 14] <- erdda_fra_long[5, 13] / coalition_seats_jospin
+# Only R
+erdda_fra_long[6, 14] <- erdda_fra_long[6, 13] / coalition_seats_jospin
+
+# Coalition parties weights Raffarin II and III 
+# Percentage of parliament seats that support the gov
+coalition_seats_raffarinIIandIII <- sum(erdda_fra_long[23, 13])
+
+# The weighted of the governing parties in the coalition
+# Only G
+erdda_fra_long[23, 14] <- erdda_fra_long[23, 13] / 
+  coalition_seats_raffarinIIandIII
+
+# Coalition parties weights de Villepin  
+# Percentage of parliament seats that support the gov
+coalition_seats_villepin <- sum(erdda_fra_long[36, 13])
+
+# The weighted of the governing parties in the coalition
+# Only G
+erdda_fra_long[36, 14] <- erdda_fra_long[36, 13] / coalition_seats_villepin
+
+# Coalition parties weights Fillon II  
+# Percentage of parliament seats that support the gov
+coalition_seats_fillonII <- sum(erdda_fra_long[48, 13], erdda_fra_long[49, 13])
+
+# The weighted of the governing parties in the coalition
+# Only CL
+erdda_fra_long[48, 14] <- erdda_fra_long[48, 13] / coalition_seats_fillonII
+# Only S
+erdda_fra_long[49, 14] <- erdda_fra_long[49, 13] / coalition_seats_fillonII
+
+# Coalition parties weights Ayrault II  
+# Percentage of parliament seats that support the gov
+coalition_seats_ayraultII <- sum(erdda_fra_long[55, 13], erdda_fra_long[57, 13],
+                                 erdda_fra_long[58, 13])
+
+# The weighted of the governing parties in the coalition
+# Only V
+erdda_fra_long[55, 14] <- erdda_fra_long[55, 13] / coalition_seats_ayraultII
+# Only S
+erdda_fra_long[57, 14] <- erdda_fra_long[57, 13] / coalition_seats_ayraultII
+# Only R
+erdda_fra_long[58, 14] <- erdda_fra_long[58, 13] / coalition_seats_ayraultII
+
+# Coalition parties weights Valls II  
+# Percentage of parliament seats that support the gov
+coalition_seats_vallsII <- sum(erdda_fra_long[70, 13], erdda_fra_long[71, 13])
+
+# The weighted of the governing parties in the coalition
+# Only S
+erdda_fra_long[70, 14] <- erdda_fra_long[70, 13] / coalition_seats_ayraultII
+# Only R
+erdda_fra_long[71, 14] <- erdda_fra_long[71, 13] / coalition_seats_ayraultII
+
+# Coalition parties weights Valls III  
+# Percentage of parliament seats that support the gov
+coalition_seats_vallsIII <- sum(erdda_fra_long[82, 13], erdda_fra_long[83, 13],
+                                erdda_fra_long[84, 13])
+
+# The weighted of the governing parties in the coalition
+# Only S
+erdda_fra_long[83, 14] <- erdda_fra_long[83, 13] / coalition_seats_ayraultII
+# Only R
+erdda_fra_long[84, 14] <- erdda_fra_long[84, 13] / coalition_seats_ayraultII
+
+
+# Coalition parties weights Philippe II  
+# Percentage of parliament seats that support the gov
+coalition_seats_philippeII <- sum(erdda_fra_long[97, 13], erdda_fra_long[98, 13],
+                                erdda_fra_long[99, 13])
+
+# The weighted of the governing parties in the coalition
+# Only LREM
+erdda_fra_long[98, 14] <- erdda_fra_long[98, 13] / coalition_seats_philippeII
+# Only CD&CR
+erdda_fra_long[99, 14] <- erdda_fra_long[99, 13] / coalition_seats_philippeII
+
+#----
+# Section: ideologies
+#-----
+# Jospin
+cabinet_jospin <- erdda_fra_long %>%
+  filter(cab_name == 'Jospin' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_jospin <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 6 & year == 1999 & (party == 'PS' | party == 'PCF' | 
+                                           party == 'VERTS' | party == 'PRG'))
+
+# Fixing name, PS = S, PCF = C, VERTS = V, PRG = R 
+ches_jospin[1, 2] <- 'S'
+ches_jospin[2, 2] <- 'C'
+ches_jospin[3, 2] <- 'R'
+ches_jospin[4, 2] <- 'V'
+
+## Adding to the cabinet dataframe
+cabinet_jospin <- cabinet_jospin %>%
+  left_join(ches_jospin, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Raffarin II and III
+cabinet_raffaringIIandIII <- erdda_fra_long %>%
+  filter(cab_name == 'Raffarin II and III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_raffaringIIandIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 6 & year == 2002 & (party == 'RPR'))
+
+# Fixing name, RPR = G
+ches_raffaringIIandIII[1, 2] <- 'G'
+
+## Adding to the cabinet dataframe
+cabinet_raffaringIIandIII <- cabinet_raffaringIIandIII %>%
+  left_join(ches_raffaringIIandIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# de Villepin
+cabinet_devillepin <- erdda_fra_long %>%
+  filter(cab_name == 'de Villepin' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_devillepin <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 6 & year == 2006 & (party == 'UMP'))
+
+# Fixing name, UMP = G
+ches_devillepin[1, 2] <- 'G'
+
+## Adding to the cabinet dataframe
+cabinet_devillepin <- cabinet_devillepin %>%
+  left_join(ches_devillepin, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Fillon II
+cabinet_fillonII <- erdda_fra_long %>%
+  filter(cab_name == 'Fillon II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_fillonII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 6 & year == 2010 & (party == 'UMP' | party == 'NC'))
+
+# Fixing name, UMP = G AND NC = CL
+ches_fillonII[2, 2] <- 'G'
+ches_fillonII[1, 2] <- 'CL'
+
+## Adding to the cabinet dataframe
+cabinet_fillonII <- cabinet_fillonII %>%
+  left_join(ches_fillonII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Ayrault II
+cabinet_ayraultII <- erdda_fra_long %>%
+  filter(cab_name == 'Ayrault II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_ayraultII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 6 & year == 2010 & (party == 'PS' | party == 'PRG' | 
+                                          party == 'VERTS'))
+
+# Fixing name, PS = S AND PRG = R AND VERTS = V
+ches_ayraultII[1, 2] <- 'S'
+ches_ayraultII[2, 2] <- 'R'
+ches_ayraultII[3, 2] <- 'V'
+
+## Adding to the cabinet dataframe
+cabinet_ayraultII <- cabinet_ayraultII %>%
+  left_join(ches_ayraultII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Valls II
+cabinet_vallsII <- erdda_fra_long %>%
+  filter(cab_name == 'Valls II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_vallsII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 6 & year == 2014 & (party == 'PS' | party == 'PRG'))
+
+# Fixing name, PS = S AND PRG = R AND VERTS = V
+ches_vallsII[1, 2] <- 'S'
+ches_vallsII[2, 2] <- 'R'
+
+## Adding to the cabinet dataframe
+cabinet_vallsII <- cabinet_vallsII %>%
+  left_join(ches_vallsII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Valls III
+cabinet_vallsIII <- erdda_fra_long %>%
+  filter(cab_name == 'Valls III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_vallsIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 6 & year == 2014 & (party == 'PS' | party == 'PRG'))
+
+# Fixing name, PS = S AND PRG = R AND VERTS = V
+ches_vallsIII[1, 2] <- 'S'
+ches_vallsIII[2, 2] <- 'R'
+
+## Adding to the cabinet dataframe
+cabinet_vallsIII <- cabinet_vallsIII %>%
+  left_join(ches_vallsIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Philippe II
+cabinet_philippeII <- erdda_fra_long %>%
+  filter(cab_name == 'Philippe II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_philippeII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 6 & year == 2019 & (party == 'LREM' | party == 'MoDem'))
+
+# Fixing name, MoDem = CD&CR
+ches_philippeII[1, 2] <- 'CD&CR'
+
+## Adding to the cabinet dataframe
+cabinet_philippeII <- cabinet_philippeII %>%
+  left_join(ches_philippeII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Jospin
+sum(cabinet_jospin$weighted_galtan)
+sum(cabinet_jospin$weighted_lrecon)
+sum(cabinet_jospin$weighted_eu_position)
+
+# Raffarin II and III
+sum(cabinet_raffaringIIandIII$weighted_galtan)
+sum(cabinet_raffaringIIandIII$weighted_lrecon)
+sum(cabinet_raffaringIIandIII$weighted_eu_position)
+
+# de Villepin 
+sum(cabinet_devillepin$weighted_galtan)
+sum(cabinet_devillepin$weighted_lrecon)
+sum(cabinet_devillepin$weighted_eu_position)
+
+# Fillon II 
+sum(cabinet_fillonII$weighted_galtan)
+sum(cabinet_fillonII$weighted_lrecon)
+sum(cabinet_fillonII$weighted_eu_position)
+
+# Ayrault II 
+sum(cabinet_ayraultII$weighted_galtan)
+sum(cabinet_ayraultII$weighted_lrecon)
+sum(cabinet_ayraultII$weighted_eu_position)
+
+# Valls II 
+sum(cabinet_vallsII$weighted_galtan)
+sum(cabinet_vallsII$weighted_lrecon)
+sum(cabinet_vallsII$weighted_eu_position)
+
+# Valls III 
+sum(cabinet_vallsIII$weighted_galtan)
+sum(cabinet_vallsIII$weighted_lrecon)
+sum(cabinet_vallsIII$weighted_eu_position)
+
+# Philippe II
+sum(cabinet_philippeII$weighted_galtan)
+sum(cabinet_philippeII$weighted_lrecon)
+sum(cabinet_philippeII$weighted_eu_position)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Croatia
+erdda_fra_new <- erdda_new %>%
+  filter(country_name == "France")
+
+# Selecting columns of interest
+erdda_fra_new <- erdda_fra_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_fra_new <- erdda_fra_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "C",
+    . == "seats_party2" ~ "L",
+    . == "seats_party3" ~ "V",
+    . == "seats_party4" ~ "OG",
+    . == "seats_party5" ~ "S",
+    . == "seats_party6" ~ "R",
+    . == "seats_party7" ~ "LREM",
+    . == "seats_party8" ~ "CD&CR",
+    . == "seats_party9" ~ "CL",
+    . == "seats_party10" ~ "G",
+    . == "seats_party11" ~ "UR",
+    . == "seats_party12" ~ "RN",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest
+erdda_fra_new <- erdda_fra_new[c(23:38), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_fra_new_long <- erdda_fra_new %>%
+  pivot_longer(cols = C:RN, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_fra_new_long <- erdda_fra_new_long %>%
+  filter(!is.na(party_seats))
+
+# Fixing the name 
+erdda_fra_new_long[c(1:7), 2] <- "Juppe I and II"
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Juppe I and II 
+# Percentage of parliament seats that support the gov
+coalition_seats_juppe <- sum(erdda_fra_new_long[5, 14], erdda_fra_new_long[6, 14])
+
+# The weighted of the governing parties in the coalition
+# Only CD&CR
+erdda_fra_new_long[5, 15] <- erdda_fra_new_long[5, 14] / coalition_seats_juppe
+# Only G
+erdda_fra_new_long[6, 15] <- erdda_fra_new_long[6, 14] / coalition_seats_juppe
+
+# Coalition parties weights Castex 
+# Percentage of parliament seats that support the gov
+coalition_seats_castex <- sum(erdda_fra_new_long[117, 14], erdda_fra_new_long[118, 14],
+                              erdda_fra_new_long[119, 14])
+
+# The weighted of the governing parties in the coalition
+# Only R
+erdda_fra_new_long[117, 15] <- erdda_fra_new_long[117, 14] / coalition_seats_castex
+# Only LREM
+erdda_fra_new_long[118, 15] <- erdda_fra_new_long[118, 14] / coalition_seats_castex
+# Only CD&CR
+erdda_fra_new_long[119, 15] <- erdda_fra_new_long[119, 14] / coalition_seats_castex
+
+#----
+# Section: ideologies
+#-----
+ches %>%
+  filter(country == 6 & year == 2019) %>%
+  select(party)
+
+# Juppe I and II
+cabinet_juppe <- erdda_fra_new_long %>%
+  filter(cab_name == 'Juppe I and II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_juppe <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 6 & year == 1999 & (party == 'RPR' | party == 'UDF'))
+
+# Fixing name, RPR = G, UDF = CD&CR 
+ches_juppe[2, 2] <- 'G'
+ches_juppe[1, 2] <- 'CD&CR'
+
+
+## Adding to the cabinet dataframe
+cabinet_juppe <- cabinet_juppe %>%
+  left_join(ches_juppe, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Castex
+cabinet_castex <- erdda_fra_new_long %>%
+  filter(cab_name == 'Castex' & !is.na(party_weight_coalition))
+
+cabinet_castex <- cabinet_castex[c(2,3), ]
+## Getting ideology from ches
+ches_castex <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 6 & year == 2019 & (party == 'LREM' | party == 'MoDem'))
+
+# Fixing name MoDem = CD&CR 
+ches_castex[1, 2] <- 'CD&CR'
+
+
+## Adding to the cabinet dataframe
+cabinet_castex <- cabinet_castex %>%
+  left_join(ches_castex, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Juppe I and II
+sum(cabinet_juppe$weighted_galtan)
+sum(cabinet_juppe$weighted_lrecon)
+sum(cabinet_juppe$weighted_eu_position)
+
+# Castex
+sum(cabinet_castex$weighted_galtan)
+sum(cabinet_castex$weighted_lrecon)
+sum(cabinet_castex$weighted_eu_position)
