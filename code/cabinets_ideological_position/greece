@@ -1,0 +1,415 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only Greece
+erdda_gre <- erdda %>%
+  filter(country_id == "Greece")
+
+# Selecting columns of interest
+erdda_gre <- erdda_gre %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_gre <- erdda_gre %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "KKE",
+    . == "seats_party2" ~ "KKE-es",
+    . == "seats_party3" ~ "SPAD",
+    . == "seats_party4" ~ "LAE",
+    . == "seats_party5" ~ "OIKEN",
+    . == "seats_party6" ~ "SYRIZA",
+    . == "seats_party7" ~ "SYN",
+    . == "seats_party8" ~ "DIKKI",
+    . == "seats_party9" ~ "DIMAR",
+    . == "seats_party10" ~ "PASOK",
+    . == "seats_party11" ~ "EK",
+    . == "seats_party12" ~ "EDIK",
+    . == "seats_party13" ~ "TP",
+    . == "seats_party14" ~ "KN",
+    . == "seats_party15" ~ "DIANA",
+    . == "seats_party16" ~ "ND",
+    . == "seats_party17" ~ "POLAN",
+    . == "seats_party18" ~ "ANEL",
+    . == "seats_party19" ~ "IM",
+    . == "seats_party20" ~ "LAOS",
+    . == "seats_party21" ~ "EP",
+    . == "seats_party22" ~ "XA",
+    . == "seats_party22" ~ "X",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest (1999-2021)
+erdda_gre <- erdda_gre[c(11:24), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_gre_long <- erdda_gre %>%
+  pivot_longer(cols = KKE:XA, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_gre_long <- erdda_gre_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Simitis II 
+# Percentage of parliament seats that support the gov
+coalition_seats_simitisII <- sum(erdda_gre_long[4, 13])
+
+# The weighted of the governing parties in the coalition
+# Only PASOK
+erdda_gre_long[4, 14] <- erdda_gre_long[4, 13] / coalition_seats_simitisII
+
+# Coalition parties weights Simitis III 
+# Percentage of parliament seats that support the gov
+coalition_seats_simitisIII <- sum(erdda_gre_long[8, 13])
+
+# The weighted of the governing parties in the coalition
+# Only PASOK
+erdda_gre_long[8, 14] <- erdda_gre_long[8, 13] / coalition_seats_simitisIII
+
+# Coalition parties weights Karamanlis I  
+# Percentage of parliament seats that support the gov
+coalition_seats_karamanlisI <- sum(erdda_gre_long[13, 13])
+
+# The weighted of the governing parties in the coalition
+# Only ND
+erdda_gre_long[13, 14] <- erdda_gre_long[13, 13] / coalition_seats_karamanlisI
+
+# Coalition parties weights Karamanlis II
+# Percentage of parliament seats that support the gov
+coalition_seats_karamanlisII <- sum(erdda_gre_long[17, 13])
+
+# The weighted of the governing parties in the coalition
+# Only ND
+erdda_gre_long[17, 14] <- erdda_gre_long[17, 13] / coalition_seats_karamanlisII
+
+# Coalition parties weights Papandreou
+# Percentage of parliament seats that support the gov
+coalition_seats_papadreou <- sum(erdda_gre_long[21, 13])
+
+# The weighted of the governing parties in the coalition
+# Only PASOK
+erdda_gre_long[21, 14] <- erdda_gre_long[21, 13] / coalition_seats_papadreou
+
+# Coalition parties weights Samaras I
+# Percentage of parliament seats that support the gov
+coalition_seats_samarasI <- sum(erdda_gre_long[44, 13], erdda_gre_long[43, 13],
+                                erdda_gre_long[45, 13])
+
+# The weighted of the governing parties in the coalition
+# Only PASOK
+erdda_gre_long[44, 14] <- erdda_gre_long[44, 13] / coalition_seats_samarasI
+# Only ND
+erdda_gre_long[45, 14] <- erdda_gre_long[45, 13] / coalition_seats_samarasI
+# Only DIMAR
+erdda_gre_long[43, 14] <- erdda_gre_long[43, 13] / coalition_seats_samarasI
+
+# Coalition parties weights Samaras II
+# Percentage of parliament seats that support the gov
+coalition_seats_samarasII <- sum(erdda_gre_long[51, 13], erdda_gre_long[52, 13])
+
+# The weighted of the governing parties in the coalition
+# Only PASOK
+erdda_gre_long[51, 14] <- erdda_gre_long[51, 13] / coalition_seats_samarasII
+# Only ND
+erdda_gre_long[52, 14] <- erdda_gre_long[52, 13] / coalition_seats_samarasII
+
+# Coalition parties weights Tsipras I
+# Percentage of parliament seats that support the gov
+coalition_seats_tsiprasI <- sum(erdda_gre_long[56, 13], erdda_gre_long[60, 13])
+
+# The weighted of the governing parties in the coalition
+# Only SYRIZA
+erdda_gre_long[56, 14] <- erdda_gre_long[56, 13] / coalition_seats_tsiprasI
+# Only ANEL
+erdda_gre_long[60, 14] <- erdda_gre_long[60, 13] / coalition_seats_tsiprasI
+
+# Coalition parties weights Tsipras II
+# Percentage of parliament seats that support the gov
+coalition_seats_tsiprasII <- sum(erdda_gre_long[71, 13], erdda_gre_long[76, 13])
+
+# The weighted of the governing parties in the coalition
+# Only SYRIZA
+erdda_gre_long[71, 14] <- erdda_gre_long[71, 13] / coalition_seats_tsiprasII
+# Only ANEL
+erdda_gre_long[76, 14] <- erdda_gre_long[76, 13] / coalition_seats_tsiprasII
+
+# Coalition parties weights Tsipras III
+# Percentage of parliament seats that support the gov
+coalition_seats_tsiprasIII <- sum(erdda_gre_long[79, 13])
+
+# The weighted of the governing parties in the coalition
+# Only SYRIZA
+erdda_gre_long[79, 14] <- erdda_gre_long[79, 13] / coalition_seats_tsiprasIII
+
+#----
+# Section: ideologies
+#-----
+# Simitis II
+cabinet_simitisII <- erdda_gre_long %>%
+  filter(cab_name == 'Simitis II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_simitisII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 4 & year == 1999 & (party == 'PASOK'))
+
+## Adding to the cabinet dataframe
+cabinet_simitisII <- cabinet_simitisII %>%
+  left_join(ches_simitisII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Simitis III
+cabinet_simitisIII <- erdda_gre_long %>%
+  filter(cab_name == 'Simitis III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_simitisIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 4 & year == 2002 & (party == 'PASOK'))
+
+## Adding to the cabinet dataframe
+cabinet_simitisIII <- cabinet_simitisIII %>%
+  left_join(ches_simitisIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Karamanlis I
+cabinet_karamanlisI <- erdda_gre_long %>%
+  filter(cab_name == 'Karamanlis I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_karamanlisI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 4 & year == 2006 & (party == 'ND'))
+
+## Adding to the cabinet dataframe
+cabinet_karamanlisI <- cabinet_karamanlisI %>%
+  left_join(ches_karamanlisI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Karamanlis II
+cabinet_karamanlisII <- erdda_gre_long %>%
+  filter(cab_name == 'Karamanlis II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_karamanlisII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 4 & year == 2010 & (party == 'ND'))
+
+## Adding to the cabinet dataframe
+cabinet_karamanlisII <- cabinet_karamanlisII %>%
+  left_join(ches_karamanlisII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Papandreou
+cabinet_papandeou <- erdda_gre_long %>%
+  filter(cab_name == 'Papandreou' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_papandeou <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 4 & year == 2010 & (party == 'PASOK'))
+
+## Adding to the cabinet dataframe
+cabinet_papandeou <- cabinet_papandeou %>%
+  left_join(ches_papandeou, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Samaras I
+cabinet_samarasI <- erdda_gre_long %>%
+  filter(cab_name == 'Samaras I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_samarasI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 4 & year == 2014 & (party == 'ND' | party == 'PASOK' |
+                                        party == 'DIMAR'))
+
+## Adding to the cabinet dataframe
+cabinet_samarasI <- cabinet_samarasI %>%
+  left_join(ches_samarasI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Samaras II
+cabinet_samarasII <- erdda_gre_long %>%
+  filter(cab_name == 'Samaras II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_samarasII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 4 & year == 2014 & (party == 'ND' | party == 'PASOK'))
+
+## Adding to the cabinet dataframe
+cabinet_samarasII <- cabinet_samarasII %>%
+  left_join(ches_samarasII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Tsipras I
+cabinet_tsiprasI <- erdda_gre_long %>%
+  filter(cab_name == 'Tsipras I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_tsiprasI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 4 & year == 2014 & (party == 'ANEL' | party == 'SYRIZA'))
+
+## Adding to the cabinet dataframe
+cabinet_tsiprasI <- cabinet_tsiprasI %>%
+  left_join(ches_tsiprasI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Tsipras II
+cabinet_tsiprasII <- erdda_gre_long %>%
+  filter(cab_name == 'Tsipras II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_tsiprasII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 4 & year == 2014 & (party == 'ANEL' | party == 'SYRIZA'))
+
+## Adding to the cabinet dataframe
+cabinet_tsiprasII <- cabinet_tsiprasII %>%
+  left_join(ches_tsiprasII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Tsipras III
+cabinet_tsiprasIII <- erdda_gre_long %>%
+  filter(cab_name == 'Tsipras III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_tsiprasIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 4 & year == 2019 & (party == 'SYRIZA'))
+
+## Adding to the cabinet dataframe
+cabinet_tsiprasIII <- cabinet_tsiprasIII %>%
+  left_join(ches_tsiprasIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Simitis II
+sum(cabinet_simitisII$weighted_galtan)
+sum(cabinet_simitisII$weighted_lrecon)
+sum(cabinet_simitisII$weighted_eu_position)
+
+# Simitis III
+sum(cabinet_simitisIII$weighted_galtan)
+sum(cabinet_simitisIII$weighted_lrecon)
+sum(cabinet_simitisIII$weighted_eu_position)
+
+# Karamanlis I
+sum(cabinet_karamanlisI$weighted_galtan)
+sum(cabinet_karamanlisI$weighted_lrecon)
+sum(cabinet_karamanlisI$weighted_eu_position)
+
+# Karamanlis II
+sum(cabinet_karamanlisII$weighted_galtan)
+sum(cabinet_karamanlisII$weighted_lrecon)
+sum(cabinet_karamanlisII$weighted_eu_position)
+
+# Papandreou
+sum(cabinet_papandeou$weighted_galtan)
+sum(cabinet_papandeou$weighted_lrecon)
+sum(cabinet_papandeou$weighted_eu_position)
+
+# Samaras I
+sum(cabinet_samarasI$weighted_galtan)
+sum(cabinet_samarasI$weighted_lrecon)
+sum(cabinet_samarasI$weighted_eu_position)
+
+# Samaras II
+sum(cabinet_samarasII$weighted_galtan)
+sum(cabinet_samarasII$weighted_lrecon)
+sum(cabinet_samarasII$weighted_eu_position)
+
+# Tsipras I
+sum(cabinet_tsiprasI$weighted_galtan)
+sum(cabinet_tsiprasI$weighted_lrecon)
+sum(cabinet_tsiprasI$weighted_eu_position)
+
+# Tsipras II
+sum(cabinet_tsiprasII$weighted_galtan)
+sum(cabinet_tsiprasII$weighted_lrecon)
+sum(cabinet_tsiprasII$weighted_eu_position)
+
+# Tsipras III
+sum(cabinet_tsiprasIII$weighted_galtan)
+sum(cabinet_tsiprasIII$weighted_lrecon)
+sum(cabinet_tsiprasIII$weighted_eu_position)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Greece
+erdda_gre_new <- erdda_new %>%
+  filter(country_name == "Greece")
+
+# Selecting columns of interest
+erdda_gre_new <- erdda_gre_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+ches %>%
+  filter(country == 4 & year == 2019) %>%
+  select(party)
+
+## Getting ideology from ches
+ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 4 & year == 2019 & (party == 'ND'))
+
