@@ -1,0 +1,416 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Importing database
+erdda <- readxl::read_excel('erdda.xlsx', sheet = 1)
+ches <- read.csv("ches.csv")
+
+# filtering only Ireland
+erdda_ire <- erdda %>%
+  filter(country_id == "Ireland")
+
+# Selecting columns of interest
+erdda_ire <- erdda_ire %>%
+  select(country_id, cab_name, date_in, date_out, cab_composition, govtype, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_ire <- erdda_ire %>%
+  rename(`S-PBP` = seats_party1, `WP-DL` = seats_party2, SD = seats_party3, 
+         Lab = seats_party4, NL = seats_party5, CnP = seats_party6, 
+         CnT = seats_party7, FF = seats_party8, FG = seats_party9, 
+         PD = seats_party10, SF = seats_party11, GR = seats_party12)
+
+# Filtering cabinets of interest (1999-2021)
+erdda_ire <- erdda_ire[c(22:29), ]
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_ire_long <- erdda_ire %>%
+  pivot_longer(cols = `S-PBP`:GR, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Ahern I 
+# Percentage of parliament seats that support the gov
+coalition_seats_ahernI <- sum(erdda_ire_long[8, 15], erdda_ire_long[10, 15])
+
+# The weighted of the governing parties in the coalition
+# Only FF
+erdda_ire_long[8, 16] <- erdda_ire_long[8, 15] / coalition_seats_ahernI
+# Only PD
+erdda_ire_long[10, 16] <- erdda_ire_long[10, 15] / coalition_seats_ahernI 
+
+# Coalition parties weights Ahern II 
+# Percentage of parliament seats that support the gov
+coalition_seats_ahernII <- sum(erdda_ire_long[20, 15], erdda_ire_long[22, 15])
+
+# The weighted of the governing parties in the coalition
+# Only FF
+erdda_ire_long[20, 16] <- erdda_ire_long[20, 15] / coalition_seats_ahernII
+# Only PD
+erdda_ire_long[22, 16] <- erdda_ire_long[22, 15] / coalition_seats_ahernII 
+
+# Coalition parties weights Ahern III 
+# Percentage of parliament seats that support the gov
+coalition_seats_ahernIII <- sum(erdda_ire_long[32, 15], erdda_ire_long[34, 15],
+                                erdda_ire_long[36, 15])
+
+# The weighted of the governing parties in the coalition
+# Only FF
+erdda_ire_long[32, 16] <- erdda_ire_long[32, 15] / coalition_seats_ahernIII
+# Only PD
+erdda_ire_long[34, 16] <- erdda_ire_long[34, 15] / coalition_seats_ahernIII 
+# Only GR
+erdda_ire_long[36, 16] <- erdda_ire_long[36, 15] / coalition_seats_ahernIII 
+
+# Coalition parties weights Cowen I 
+# Percentage of parliament seats that support the gov
+coalition_seats_cowenI <- sum(erdda_ire_long[44, 15], erdda_ire_long[46, 15],
+                                erdda_ire_long[48, 15])
+
+# The weighted of the governing parties in the coalition
+# Only FF
+erdda_ire_long[44, 16] <- erdda_ire_long[44, 15] / coalition_seats_cowenI
+# Only PD
+erdda_ire_long[46, 16] <- erdda_ire_long[46, 15] / coalition_seats_cowenI 
+# Only GR
+erdda_ire_long[48, 16] <- erdda_ire_long[48, 15] / coalition_seats_cowenI
+
+# Coalition parties weights Kenny I 
+# Percentage of parliament seats that support the gov
+coalition_seats_kennyI <- sum(erdda_ire_long[69, 15], erdda_ire_long[64, 15])
+
+# The weighted of the governing parties in the coalition
+# Only Lab
+erdda_ire_long[64, 16] <- erdda_ire_long[64, 15] / coalition_seats_kennyI
+# Only FG
+erdda_ire_long[69, 16] <- erdda_ire_long[69, 15] / coalition_seats_kennyI 
+
+# Coalition parties weights Kenny II 
+# Percentage of parliament seats that support the gov
+coalition_seats_kennyII <- sum(erdda_ire_long[81, 15])
+
+# The weighted of the governing parties in the coalition
+# Only FG
+erdda_ire_long[81, 16] <- erdda_ire_long[81, 15] / coalition_seats_kennyII 
+
+# Coalition parties weights Kenny III 
+# Percentage of parliament seats that support the gov
+coalition_seats_kennyIII <- sum(erdda_ire_long[93, 15])
+
+# The weighted of the governing parties in the coalition
+# Only FG
+erdda_ire_long[93, 16] <- erdda_ire_long[93, 15] / coalition_seats_kennyIII 
+
+#----
+# Section: ideologies
+#-----
+# Ahern I
+cabinet_ahernI <- erdda_ire_long %>%
+  filter(cab_name == 'Ahern I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_ahernI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 7 & year == 1999 & (party == 'FF' | party == 'PD'))
+
+## Adding to the cabinet dataframe
+cabinet_ahernI <- cabinet_ahernI %>%
+  left_join(ches_ahernI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Ahern II
+cabinet_ahernII <- erdda_ire_long %>%
+  filter(cab_name == 'Ahern II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_ahernII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 7 & year == 2002 & (party == 'FF' | party == 'PD'))
+
+## Adding to the cabinet dataframe
+cabinet_ahernII <- cabinet_ahernII %>%
+  left_join(ches_ahernII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Ahern III
+cabinet_ahernIII <- erdda_ire_long %>%
+  filter(cab_name == 'Ahern III' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_ahernIII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 7 & year == 2006 & (party == 'FF' | party == 'PD' | 
+                                          party == 'GP'))
+# Fixing name, GP = GR 
+ches_ahernIII[1, 2] <- 'GR'
+
+## Adding to the cabinet dataframe
+cabinet_ahernIII <- cabinet_ahernIII %>%
+  left_join(ches_ahernIII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Cowen I
+cabinet_cowenI <- erdda_ire_long %>%
+  filter(cab_name == 'Cowen I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_cowenI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 7 & year == 2010 & (party == 'FF' | party == 'PD' | 
+                                          party == 'GP'))
+# Fixing name, GP = GR 
+ches_cowenI[2, 2] <- 'GR'
+
+# Filtering the PD, Party disbanded in 2009
+cabinet_cowenI <- cabinet_cowenI[c(1,3), ]
+
+## Adding to the cabinet dataframe
+cabinet_cowenI <- cabinet_cowenI %>%
+  left_join(ches_cowenI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Kenny I
+cabinet_kennyI <- erdda_ire_long %>%
+  filter(cab_name == 'Kenny I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_kennyI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 7 & year == 2014 & (party == 'FG' | party == 'Lab'))
+
+## Adding to the cabinet dataframe
+cabinet_kennyI <- cabinet_kennyI %>%
+  left_join(ches_kennyI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Kenny II
+cabinet_kennyII <- erdda_ire_long %>%
+  filter(cab_name == 'Kenny II' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_kennyII <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 7 & year == 2014 & (party == 'FG'))
+
+## Adding to the cabinet dataframe
+cabinet_kennyII <- cabinet_kennyII %>%
+  left_join(ches_kennyII, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Varadkar I
+cabinet_varadkarI <- erdda_ire_long %>%
+  filter(cab_name == 'Varadkar I' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_varadkarI <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 7 & year == 2019 & (party == 'FG'))
+
+## Adding to the cabinet dataframe
+cabinet_varadkarI <- cabinet_varadkarI %>%
+  left_join(ches_varadkarI, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Ahern I
+sum(cabinet_ahernI$weighted_galtan)
+sum(cabinet_ahernI$weighted_lrecon)
+sum(cabinet_ahernI$weighted_eu_position)
+
+# Ahern II
+sum(cabinet_ahernII$weighted_galtan)
+sum(cabinet_ahernII$weighted_lrecon)
+sum(cabinet_ahernII$weighted_eu_position)
+
+# Ahern III
+sum(cabinet_ahernIII$weighted_galtan)
+sum(cabinet_ahernIII$weighted_lrecon)
+sum(cabinet_ahernIII$weighted_eu_position)
+
+# Cowen I
+sum(cabinet_cowenI$weighted_galtan)
+sum(cabinet_cowenI$weighted_lrecon)
+sum(cabinet_cowenI$weighted_eu_position)
+
+# Kenny I
+sum(cabinet_kennyI$weighted_galtan)
+sum(cabinet_kennyI$weighted_lrecon)
+sum(cabinet_kennyI$weighted_eu_position)
+
+# Kenny II
+sum(cabinet_kennyII$weighted_galtan)
+sum(cabinet_kennyII$weighted_lrecon)
+sum(cabinet_kennyII$weighted_eu_position)
+
+# Varadkar I
+sum(cabinet_varadkarI$weighted_galtan)
+sum(cabinet_varadkarI$weighted_lrecon)
+sum(cabinet_varadkarI$weighted_eu_position)
+
+ches %>%
+  filter(country == 7 & year == 2019) %>%
+  select(party)
+
+###Update
+# Importing database
+erdda_new <- read.csv('erdda_new.csv')
+
+# filtering only Croatia
+erdda_ire_new <- erdda_new %>%
+  filter(country_name == "Ireland")
+
+# Selecting columns of interest
+erdda_ire_new <- erdda_ire_new %>%
+  select(country_id, cab_name, date_in_str, date_out_str, cab_composition1, 
+         support_parties, seats, starts_with("seats_party"), 
+         starts_with("cab_party"), starts_with("support_party"))  %>%
+  select_if(function(col) any(!is.na(col)))
+
+# Changing names of columns to parties abbreviations
+erdda_ire_new <- erdda_ire_new %>%
+  rename_with(~case_when(
+    . == "seats_party1" ~ "S-PBP",
+    . == "seats_party2" ~ "WP-DL",
+    . == "seats_party3" ~ "SD",
+    . == "seats_party4" ~ "LP",
+    . == "seats_party5" ~ "NL",
+    . == "seats_party6" ~ "CnP",
+    . == "seats_party7" ~ "CnT",
+    . == "seats_party8" ~ "FF",
+    . == "seats_party9" ~ "FG",
+    . == "seats_party10" ~ "PD",
+    . == "seats_party11" ~ "SF",
+    . == "seats_party12" ~ "GP",
+    . == "seats_party13" ~ "A",
+    . == "seats_party14" ~ "14C",
+    TRUE ~ .  # Keep other columns as they are
+  ))
+
+# Filtering cabinets of interest
+erdda_ire_new <- erdda_ire_new[c(21:30), ]
+
+
+# Transforming to long (parties) and adding a new column for weigh coalition
+erdda_ire_new_long <- erdda_ire_new %>%
+  pivot_longer(cols = `S-PBP`:`14C`, # Specify the columns to pivot
+               names_to = "party", # Name of the new column for party names
+               values_to = "party_seats")  %>%
+  mutate(party_weight_coalition = NA)
+
+# Filtering only rows in party_seats that are not na
+erdda_ire_new_long <- erdda_ire_new_long %>%
+  filter(!is.na(party_seats))
+
+# Section: cabinet weights
+#-----
+# Coalition parties weights Bruton
+# Percentage of parliament seats that support the gov
+coalition_seats_bruton <- sum(erdda_ire_new_long[2, 15], erdda_ire_new_long[4, 15])
+
+# The weighted of the governing parties in the coalition
+# Only LP
+erdda_ire_new_long[2, 16] <- erdda_ire_new_long[2, 15] / coalition_seats_bruton
+# Only FG
+erdda_ire_new_long[4, 16] <- erdda_ire_new_long[4, 15] / coalition_seats_bruton
+
+# Coalition parties weights Martin
+# Percentage of parliament seats that support the gov
+coalition_seats_martin <- sum(erdda_ire_new_long[59, 15], erdda_ire_new_long[60, 15],
+                              erdda_ire_new_long[62, 15])
+
+# The weighted of the governing parties in the coalition
+# Only FF
+erdda_ire_new_long[59, 16] <- erdda_ire_new_long[59, 15] / coalition_seats_martin
+# Only FG
+erdda_ire_new_long[60, 16] <- erdda_ire_new_long[60, 15] / coalition_seats_martin
+# Only GR
+erdda_ire_new_long[62, 16] <- erdda_ire_new_long[62, 15] / coalition_seats_martin
+
+#----
+# Section: ideologies
+#-----
+# Bruton
+cabinet_bruton <- erdda_ire_new_long %>%
+  filter(cab_name == 'Bruton' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_bruton <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 7 & year == 1999 & (party == 'FG' | party == 'LP'))
+
+## Adding to the cabinet dataframe
+cabinet_bruton <- cabinet_bruton %>%
+  left_join(ches_bruton, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+# Martin
+cabinet_martin <- erdda_ire_new_long %>%
+  filter(cab_name == 'Martin' & !is.na(party_weight_coalition))
+
+## Getting ideology from ches
+ches_martin <- ches %>%
+  select(year, party, country, galtan, lrecon, eu_position) %>%
+  filter(country == 7 & year == 2019 & (party == 'FG' | party == 'FF' |
+                                        party == 'GP'  ))
+
+## Adding to the cabinet dataframe
+cabinet_martin <- cabinet_martin %>%
+  left_join(ches_martin, by = "party") %>%
+  mutate(
+    weighted_galtan = galtan * party_weight_coalition, 
+    weighted_lrecon = lrecon * party_weight_coalition, 
+    weighted_eu_position = eu_position * party_weight_coalition
+  )
+
+#----
+# Section: weighted results to pass to the data frame
+#-----
+# Bruton
+sum(cabinet_bruton$weighted_galtan)
+sum(cabinet_bruton$weighted_lrecon)
+sum(cabinet_bruton$weighted_eu_position)
+
+# Martin
+sum(cabinet_martin$weighted_galtan)
+sum(cabinet_martin$weighted_lrecon)
+sum(cabinet_martin$weighted_eu_position)
