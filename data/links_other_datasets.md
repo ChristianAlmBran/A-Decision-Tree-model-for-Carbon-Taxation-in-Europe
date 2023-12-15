@@ -26,8 +26,8 @@ Source: Our World In Data (2023)
 Link: https://ourworldindata.org/grapher/annual-co2-emissions-per-country?stackMode=relative&time=1990..2020&country=~NOR
 
 ## Brent price
-Source:
-Link:
+Source: Statista (2023)
+Link: https://www.statista.com/statistics/262860/uk-brent-crude-oil-price-changes-since-1976/
 
 ## Government debt by GDP
 Source for non-EU countries: Trading Economics (2023)
