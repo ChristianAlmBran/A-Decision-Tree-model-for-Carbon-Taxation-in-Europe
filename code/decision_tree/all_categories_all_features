@@ -15,7 +15,7 @@ allVariDecisionTree <- allVariDecisionTree %>%
 
 
 # Selecting columns of interest
-allVariDecisionTree <- allVariDecisionTree[, c(5:8, 11:18, 25:34)]
+allVariDecisionTree <- allVariDecisionTree[, c(5:8, 11:18, 25:33)]
 
 # Fixing two NAs in the dataframe
 allVariDecisionTree[10,7] <- 1
