@@ -1,0 +1,79 @@
+#10%Variation
+#----
+# Creating new variable
+allVariDecisionTree <- completeDataFrame
+
+# Filtering for carbon taxes with rates higher than on dollar
+#allVariDecisionTree <- allVariDecisionTree %>%
+#  filter(adjusted_tax_average >= 1)
+
+# Considering the cabinet that created the carbon tax as one that increased the tax
+allVariDecisionTree <- allVariDecisionTree %>%
+  mutate(
+    Label10 = case_when(
+      tax_created == 1 ~ "Increased",
+      TRUE ~ Label10
+    ))
+
+# Filtering the categories of interest
+allVariDecisionTree <- allVariDecisionTree %>% 
+  filter(Label10 %in% c("Increased", "Same", "Decreased"))
+
+# Selecting columns of interest
+allVariDecisionTree <- allVariDecisionTree[, c(5:8, 11:18, 25:34)]
+
+# Fixing two NAs in the dataframe
+allVariDecisionTree[10,7] <- 1
+allVariDecisionTree[10,8] <- 1
+
+
+
+# Transforming the target variable to factor
+allVariDecisionTree$Label10 <- as.factor(allVariDecisionTree$Label10)
+allVariDecisionTree$anti_tax_protests_5000 <- as.factor(allVariDecisionTree$anti_tax_protests_5000)
+allVariDecisionTree$environmental_pressure <- as.factor(allVariDecisionTree$environmental_pressure)
+
+table(allVariDecisionTree$Label10)
+# Create a weight vector based on the frequencies of each category
+class_weights <- table(allVariDecisionTree$Label10)
+class_weights <- 1 / table(allVariDecisionTree$Label10)
+
+# Create a vector of weights based on conditions
+weight_vector <- ifelse(allVariDecisionTree$Label10 == "Increased", 0.0385, 
+                        ifelse(allVariDecisionTree$Label10 == "Decreased", 0.1111, 
+                               ifelse(allVariDecisionTree$Label10 == "Same", 0.0333, 1)))
+
+# Create a custom training control for LOOCV
+ctrl <- trainControl(method = "LOOCV")
+set.seed(123)
+# Training the decision tree using LOOCV
+tree <- train(Label10 ~., 
+              data = allVariDecisionTree, weights = weight_vector,
+              method = "rpart", trControl = ctrl, 
+              control = rpart.control(maxdepth = 5, minbucket = 1))
+
+# Predictions
+tree_label10_predicted <- predict(tree, newdata = allVariDecisionTree)
+table(completeDataFrame$Label10)
+# Confusion Matrix
+confusionMatrix(tree_label10_predicted, allVariDecisionTree$Label10)
+
+# Visualization
+prp(tree$finalModel, varlen = 0)
+prp(tree$finalModel, varlen = 0, cex = 0.7, 
+    fallen.leaves = FALSE, tweak = 1.0)
+
+# Variable Importance Plot
+df <- as.data.frame(varImp(tree)$importance)
+
+df2 <- df %>%
+  rownames_to_column(var = "variable") %>%
+  rename(imp = Overall) %>%
+  arrange(desc(imp)) %>%
+  mutate(variable = fct_inorder(variable))
+
+ggplot(df2, aes(x = variable, y = imp)) +
+  geom_col(col = "black", show.legend = FALSE) +
+  coord_flip() +
+  scale_fill_grey() +
+  theme_bw()
