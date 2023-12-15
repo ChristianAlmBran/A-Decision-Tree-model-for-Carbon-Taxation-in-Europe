@@ -20,7 +20,7 @@ allVariDecisionTree <- allVariDecisionTree %>%
   filter(Label10 %in% c("Increased", "Same", "Decreased"))
 
 # Selecting columns of interest
-allVariDecisionTree <- allVariDecisionTree[, c(5:8, 11:18, 25:33)]
+allVariDecisionTree <- allVariDecisionTree[, c(5:8, 11:18, 25:34)]
 
 # Fixing two NAs in the dataframe
 allVariDecisionTree[10,7] <- 1
