@@ -39,15 +39,16 @@ class_weights <- table(allVariDecisionTree$Label10)
 class_weights <- 1 / table(allVariDecisionTree$Label10)
 
 # Create a vector of weights based on conditions
-weight_vector <- ifelse(allVariDecisionTree$Label10 == "Increased", 0.0385, 
-                        ifelse(allVariDecisionTree$Label10 == "Decreased", 0.1111, 
-                               ifelse(allVariDecisionTree$Label10 == "Same", 0.0333, 1)))
+weight_vector <- ifelse(allVariDecisionTree$Label10 == "Increased", 0.0278, 
+                        ifelse(allVariDecisionTree$Label10 == "Decreased", 0.0625, 
+                               ifelse(allVariDecisionTree$Label10 == "Same", 0.0204, 1)))
 
 # Create a custom training control for LOOCV
 ctrl <- trainControl(method = "LOOCV")
 set.seed(123)
 # Training the decision tree using LOOCV
-tree <- train(Label10 ~., 
+tree <- train(Label10 ~ weighted_galtan + weighted_leftright + weighted_eu 
+              + greens_gov + perc_votes_green + neutral_tax + green_revenue, 
               data = allVariDecisionTree, weights = weight_vector,
               method = "rpart", trControl = ctrl, 
               control = rpart.control(maxdepth = 5, minbucket = 1))
@@ -71,6 +72,12 @@ df2 <- df %>%
   rename(imp = Overall) %>%
   arrange(desc(imp)) %>%
   mutate(variable = fct_inorder(variable))
+
+ggplot(df2, aes(x = variable, y = imp)) +
+  geom_col(col = "black", show.legend = FALSE) +
+  coord_flip() +
+  scale_fill_grey() +
+  theme_bw()
 
 ggplot(df2, aes(x = variable, y = imp)) +
   geom_col(col = "black", show.legend = FALSE) +
