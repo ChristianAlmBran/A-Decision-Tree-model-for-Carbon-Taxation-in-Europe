@@ -1,0 +1,21 @@
+# Loading packages
+pacman::p_load(tidyverse, ggplot2, gridExtra)
+
+# Selecting columns of interest
+graphdf <- completeDataFrame %>%
+  select(weighted_galtan, weighted_leftright, weighted_eu)
+
+# Scatter plot
+galtan_leftright_eu_plot <- ggplot(graphdf, aes(x = weighted_galtan, y = weighted_eu, color = weighted_leftright)) +
+  geom_point(size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") +  # Adding lm line
+  theme_minimal() +
+  labs(x = "Galtan",
+       y = "Anti-pro EU",
+       color = "Left-right"
+  ) +
+  scale_color_gradient(low = "blue", high = "red")  # Adjust color scale as needed
+
+
+# Save the plot as an image file (e.g., PNG format)
+ggsave("galtan_leftright_eu_plot.png", galtan_leftright_eu_plot, width = 10, height = 6, dpi = 300, bg = "white")
