@@ -1,0 +1,27 @@
+# Loading packages
+pacman::p_load(tidyverse, patchwork, gridExtra)
+
+# Loading data frame
+ches <- read.csv('ches.csv')
+
+# Selecting columns of interest
+ches <- ches %>%
+  select(environment, enviro_salience, lrecon, year, eumember, family)
+
+# Filtering 2019
+ches2019 <- ches %>%
+  filter(year == 2019)
+
+# Scatter plot
+leftright_environemnt_plot <- ggplot(ches2019, aes(x = lrecon, y = environment, color = enviro_salience)) +
+  geom_point(size = 3, alpha = 0.7) +
+  theme_minimal() +
+  labs(
+       x = "Left-right",
+       y = "Environment",
+       color = "Enviromental Salience"
+  ) +
+  scale_color_gradient(low = "blue", high = "red")  # Adjust color scale as needed
+
+# Save the plot as an image file (e.g., PNG format)
+ggsave("leftright_environemnt_plot.png", leftright_environemnt_plot, width = 10, height = 6, dpi = 300, bg = "white")
