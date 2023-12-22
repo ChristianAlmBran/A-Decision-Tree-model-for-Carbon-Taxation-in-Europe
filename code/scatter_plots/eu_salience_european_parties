@@ -1,0 +1,53 @@
+#loading packages
+pacman::p_load(tidyverse, patchwork, gridExtra)
+
+#loading dataframes
+ches <- read.csv('ches.csv')
+
+#selecting columns of interest
+ches <- ches %>%
+  select(eu_salience, year, eumember, family)
+
+ches2019 <- ches %>%
+  filter(year == 2019)
+
+ches1999 <- ches %>%
+  filter(year == 1999)
+
+# Scatter plot 2019
+plot_2019 <- ggplot(ches2019, aes(x = eu_salience, fill = "2019")) +
+  geom_density(alpha = 0.5, color = "black") +
+  xlim(0, 10) + 
+  ylim(0, 0.4) + # Set x-axis limits
+  labs(x = "EU Salience", y = "Density", fill = "Year") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.text = element_text(size = 10),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray80"),
+        panel.grid.minor = element_blank(),
+        plot.margin = margin(10, 10, 10, 10, "pt"))
+
+# Scatter plot 1999
+plot_1999 <- ggplot(ches1999, aes(x = eu_salience, fill = "1999")) +
+  geom_density(alpha = 0.5, color = "black") +
+  xlim(0, 10) + 
+  ylim(0, 0.4) + # Set x-axis limits
+  labs(x = "EU Salience", y = "Density", fill = "Year") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        legend.title = element_text(size = 12, face = "bold"),
+        legend.text = element_text(size = 10),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray80"),
+        panel.grid.minor = element_blank(),
+        plot.margin = margin(10, 10, 10, 10, "pt"))
+
+# Combine plots using patchwork
+combined_plots <- grid.arrange(plot_1999, plot_2019, ncol = 2)
+
+# Save the plot as an image file (e.g., PNG format)
+ggsave("eu_salience_density_plot_years.png", combined_plots, width = 10, height = 6, dpi = 300, bg = "white")
