@@ -23,6 +23,7 @@ completeDataFrame$tax_60 <- as.factor(completeDataFrame$tax_60)
 completeDataFrame$western_eu <- as.factor(completeDataFrame$western_eu)
 completeDataFrame$environmental_pressure <- as.factor(completeDataFrame$environmental_pressure)
 completeDataFrame$environmental_disasters <- as.factor(completeDataFrame$environmental_disasters)
+completeDataFrame$subregions <- as.factor(completeDataFrame$subregions)
 
 # Correcting some NAs
 completeDataFrame$environmental_pressure <- ifelse(is.na(completeDataFrame$environmental_pressure), 1, completeDataFrame$environmental_pressure)
