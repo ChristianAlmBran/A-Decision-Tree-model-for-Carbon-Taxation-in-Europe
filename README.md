@@ -1,7 +1,7 @@
 # A Decision Tree Model for Carbon Taxation in Europe
 
 ## Overview
-This repository contains the data and information necessary to reproduce the research presented in the Master's dissertation: A Decision Tree Model for Carbon Taxation in Europe.
+This repository contains the data and information necessary to reproduce the research presented in the Master's dissertation: Green Influence, Economic Realities, and Political Landscapes: Understanding Carbon Tax Determinants in Europe using Machine Learning.
 
 ## Data
 The only data file needed to reproduce the decision tree model is the "all_cabinets_all_features.csv." The other data files were added to facilitate the reproducibility of the information on the main data frame.
