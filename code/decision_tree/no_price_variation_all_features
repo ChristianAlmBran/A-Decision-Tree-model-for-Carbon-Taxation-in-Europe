@@ -1,7 +1,12 @@
 #NoVariation
 #----
 # Preparing data frame
-allVariDecisionTreeNoVariation <- completeDataFrame
+## Modified the dataframe to prevent occurrences where a "tax created" event is immediately followed by a "no tax" event
+modifiedDataFrame <- completeDataFrame
+modifiedDataFrame[41, 34] <- "Increased"
+modifiedDataFrame[148, 34] <- "No tax"
+
+allVariDecisionTreeNoVariation <- modifiedDataFrame
 
 # Considering the cabinet that have a carbon tax lower than one euro as having no tax
 allVariDecisionTreeNoVariation <- allVariDecisionTreeNoVariation %>%
